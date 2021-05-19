@@ -46,3 +46,16 @@ double (*_2D_Kernel_density_estimation(int num_point, int* point_coord[2], int n
     }
     return Pixel_info;
 }
+
+extern "C" {
+    double (*kernel_density_estimation(
+        int num_point, 
+        int* point_coord[2], 
+        int num_index, 
+        int index[], 
+        float bandwidth, 
+        int resolution
+    ))[Max_Resolution] {
+        return _2D_Kernel_density_estimation(num_point, point_coord, num_index, index, bandwidth, resolution);
+    }
+}

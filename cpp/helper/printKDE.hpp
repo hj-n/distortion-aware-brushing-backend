@@ -68,7 +68,7 @@ void makeRandomInput(int* resolution, int* num_point, int*** point_coord, int* n
 
     uniform_int_distribution<int> dis1(0, (*resolution)*(*resolution)-1);
     //(*num_point) = dis1(gen);
-    (*num_point) = 80;
+    (*num_point) = 10000;
     (*point_coord) = (int**)malloc((*num_point) * sizeof(int*));
     for(int i = 0; i < (*num_point); i++){
         (*point_coord)[i] = (int*)malloc(2 * sizeof(int));
