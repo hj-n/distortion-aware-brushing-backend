@@ -1,0 +1,8 @@
+*.out
+exec
+
+*_pycache__/
+
+build/
+
+*.o
