@@ -3,6 +3,10 @@ exec
 
 *_pycache__/
 
-build/
-
 *.o
+
+*CMakeCache.txt
+*cmake_install.cmake
+
+*Makefile
+*CMakeFiles/

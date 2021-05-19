@@ -1,4 +1,7 @@
-#pragma once
+#ifndef PRINTKDE_HPP
+#define PRINTKDE_HPP
+
+
 #include <iostream>
 #include <random>
 using namespace std;
@@ -86,3 +89,7 @@ void makeRandomInput(int* resolution, int* num_point, int*** point_coord, int* n
     }
 
 }
+
+
+
+#endif

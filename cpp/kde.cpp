@@ -1,10 +1,8 @@
 #include <iostream>
 #include <math.h>
-#include "./helper/printKDE.hpp"
+#include "kde.hpp"
 using namespace std;
 
-#define Max_Resolution 100
-#define Bandwidth 0.0001
 
 //filter with Gaussian Kernel
 void _Gaussian_filter(int resolution, int point_x, int point_y, double Pixel_info[][Max_Resolution]){
@@ -47,34 +45,4 @@ double (*_2D_Kernel_density_estimation(int num_point, int* point_coord[2], int n
                 Pixel_info[i][j] /= MAX;
     }
     return Pixel_info;
-}
-
-int main(){
-
-    int resolution;
-    int num_point;
-    int** point_coord;
-    int num_index;
-    int* index;
-
-
-    //make Input ( 일단은 num_point = num_index )
-    makeRandomInput(&resolution, &num_point, &point_coord, &num_index, &index);
-
-    // //print Randomly maked input
-    // printInput(num_point, point_coord, num_index, index);
-    //print map ( resolution * resolution )
-    printpoint(num_point, point_coord, resolution);
-
-
-    //sizeof Pixel_info : [Max_Resolution][Max_Resolution]
-    double (*Pixel_info)[Max_Resolution] ;
-    //run 2D_KDE
-    Pixel_info = _2D_Kernel_density_estimation(num_point, point_coord, num_index, index, Bandwidth, resolution);
-
-    
-    //print Pixel_info
-    printPixel_info(Pixel_info, resolution, 0.4); // Threshold = 0.4
-    
-    return 0;
 }
