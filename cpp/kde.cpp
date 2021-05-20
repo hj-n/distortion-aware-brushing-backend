@@ -20,36 +20,43 @@
 #include "kde.hpp"
 using namespace std;
 
-#define Max_Resolution 100
+
+// float expf_fast(float a) {
+
+
+//   return u.f;
+// }
 
 //filter with Gaussian Kernel
 void _Gaussian_filter(int resolution, float bandwidth, float point_x, float point_y, float* Pixel_info){
     float r, s = 2.0 * bandwidth * bandwidth;
 
-    for(int x = 0; x < resolution; x++){
-        for(int y = 0; y < resolution; y++){
-            float dx = (float) x - point_x;
-            float dy = (float) y - point_y;
+    for(int i = 0; i < resolution; i++){
+        for(int j = 0; j < resolution; j++){
+            float dy = (float) i - point_y;
+            float dx = (float) j - point_x;
             float r_sq = dx * dx + dy * dy;
             float g_value = (exp(-r_sq / s)) / (M_PI * s);
-            Pixel_info[x * resolution + y] += g_value;
+            Pixel_info[i * resolution + j] += g_value;
         }
     }
     return;
 }
 
-void _Gaussian_filter_p(int resolution, float bandwidth, float point_x, float point_y, float* Pixel_info){
+void _Gaussian_filter_parallel(int resolution, float bandwidth, float point_x, float point_y, float* Pixel_info){
     float r, s = 2.0 * bandwidth * bandwidth;
+    float pi_s = s * M_PI;
 
+    #pragma omp parallel for num_threads(8) schedule(auto) shared(r,s)
+    for(int i = 0; i < resolution; i++){
+        for(int j = 0; j < resolution; j++){
+            float dy = (float) i - point_y;
+            float dx = (float) j - point_x;
+            float r_sq = - (dx * dx + dy * dy) / s;
+            float g_value = exp(r_sq) / (pi_s);
+            // float g_value = exp(r_sq) / (pi_s);
 
-    #pragma omp parallel for num_threads(32) schedule(auto) shared(r,s)
-    for(int x = 0; x < resolution; x++){
-        for(int y = 0; y < resolution; y++){
-            float dx = (float) x - point_x;
-            float dy = (float) y - point_y;
-            float r_sq = dx * dx + dy * dy;
-            float g_value = (exp(-r_sq / s)) / (M_PI * s);
-            Pixel_info[x * resolution + y] += g_value;
+            Pixel_info[i * resolution + j] += g_value;
         }
     }
     return;
@@ -58,32 +65,18 @@ void _Gaussian_filter_p(int resolution, float bandwidth, float point_x, float po
 void _2D_Kernel_density_estimation(int num_point, float* point_coord, int num_index, int* index, float bandwidth, int resolution, float* output_pixel_info){
     float MAX = 0;
 
-    chrono::steady_clock::time_point begin = chrono::steady_clock::now();
 
+    // chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+    // chrono::steady_clock::time_point end = chrono::steady_clock::now();
+
+    // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+    /////////
 
     for(int i = 0; i < num_index; i++){
         int i_index = index[i];
-        _Gaussian_filter(resolution, bandwidth, point_coord[i_index * 2], point_coord[i_index * 2 + 1], output_pixel_info);
+        _Gaussian_filter_parallel(resolution, bandwidth, point_coord[i_index * 2], point_coord[i_index * 2 + 1], output_pixel_info);
     }
 
-
-    chrono::steady_clock::time_point end = chrono::steady_clock::now();
-
-    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
-    /////////
-    begin = chrono::steady_clock::now();
-
-
-    for(int i = 0; i < num_index; i++){
-        int i_index = index[i];
-        _Gaussian_filter_p(resolution, bandwidth, point_coord[i_index * 2], point_coord[i_index * 2 + 1], output_pixel_info);
-    }
-
-
-    end = chrono::steady_clock::now();
-
-    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
-    /////////
 
     for (int i = 0; i < resolution; i++)
         for (int j = 0; j < resolution; j++) 
@@ -95,6 +88,7 @@ void _2D_Kernel_density_estimation(int num_point, float* point_coord, int num_in
             for (int j = 0; j < resolution; j++)
                 output_pixel_info[i * resolution + j] /= MAX;
     }
+
     return;
 }
 
@@ -106,10 +100,10 @@ extern "C" {
         float* point_coord, 
         int num_index, 
         int* index, 
-        float bandwidth, 
         int resolution,
         float* output_pixel_info
     ) {
+        float bandwidth = pow(num_index, (-1/6));
         _2D_Kernel_density_estimation(num_point, point_coord, num_index, index, bandwidth, resolution, output_pixel_info);
     }
 }

@@ -16,20 +16,21 @@ kde_cpp.argtypes = [
     POINTER(c_float), ## point_coords
     c_int,  ## num_index
     POINTER(c_int), ## index
-    c_float,     ## bandwidth
     c_int,       ## resolution
     POINTER(c_float) ## output_pixel_value
 ]
 kde_cpp.restype = None
 
 #### TEST ####
-resolution = 100
+resolution = 25
 
-num_points = 10000
+num_points = 50000
 point_coord_raw = np.random.rand(num_points * 2).astype(np.float32) * resolution
-num_index = 5000
+num_index = 40000
 index_raw = np.random.randint(num_points, size=num_index)
-bandwidth = 1
+bandwidth = num_index**(-1./(2+4))
+
+
 
 output_pixel_value_raw = np.zeros(resolution * resolution)
 
@@ -39,7 +40,7 @@ index = (c_int * num_index)(*index_raw)
 output_pixel_value = (c_float * (resolution * resolution))(*output_pixel_value_raw)
 
 def test():
-    kde_cpp(num_points, point_coord, num_index, index, bandwidth, resolution, output_pixel_value)
+    kde_cpp(num_points, point_coord, num_index, index, resolution, output_pixel_value)
 
 t = timeit.timeit(test, number=1)
 
@@ -48,6 +49,13 @@ print(t)
 result = np.reshape(
     np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
 )
+
+print(point_coord_raw[index_raw[0] * 2], point_coord_raw[index_raw[0] * 2 + 1])
+
+for i in range(resolution):
+    for j in range(resolution):
+        print(round(result[i][j], 2), end =" ")
+    print()
 
     
 
