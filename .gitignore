@@ -10,3 +10,5 @@ exec
 
 *Makefile
 *CMakeFiles/
+
+*.vscode/

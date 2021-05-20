@@ -24,7 +24,7 @@ void printInput(int num_point, int** point_coord, int num_index, int* index){
 }
 
 //print point[resolution][resolution] if selected "X" else "."
-void printpoint(int num_point, int** point_coord, int resolution){
+void printpoint(int num_point, int* point_coord, int resolution){
     cout << "MAP : " << endl; 
     int map[Max_Resolution][Max_Resolution] = {0, };
     for(int i = 0; i < num_point; i++)
@@ -41,7 +41,7 @@ void printpoint(int num_point, int** point_coord, int resolution){
 }
 
 //print Pixel_info[resolution][resolution]
-void printPixel_info(double Pixel_info[][Max_Resolution], int resolution, double Threshold){
+void printPixel_info(double** Pixel_info, int resolution, double Threshold){
     cout << "Pixel Info : " << endl;
     for(int i=0;i<resolution;i++){
         for(int j=0;j<resolution;j++)
@@ -57,7 +57,7 @@ void printPixel_info(double Pixel_info[][Max_Resolution], int resolution, double
 }
 
 //make Random Input
-void makeRandomInput(int* resolution, int* num_point, int*** point_coord, int* num_index, int** index){
+void makeRandomInput(int* resolution, int* num_point, int** point_coord, int* num_index, int** index){
 
     random_device rd;
     mt19937 gen(rd());
