@@ -1,7 +1,18 @@
-## FLAST SERVER
+'''
+FLASK SERVER Libaray import
+'''
 
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from pathlib import Path
+
+
+'''
+Libraries / methods for main Computation
+- kde_cpp : kernel density estimation
+- msq_cpp : marching squares algorithm (TODO)
+'''
 from ctypes import *
-
 import numpy as np
 import timeit
 
@@ -20,6 +31,35 @@ kde_cpp.argtypes = [
     POINTER(c_float) ## output_pixel_value
 ]
 kde_cpp.restype = None
+
+
+'''
+SERVER CODE
+'''
+
+app = Flask(__name__)
+CORS(app)
+
+
+
+@app.route('/init')
+def init():
+    return "TEST"
+
+if __name__ == '__main__':
+    app.run()
+
+
+
+
+
+
+
+'''
+TEST CODE
+'''
+
+'''
 
 #### TEST ####
 resolution = 25
@@ -59,3 +99,4 @@ for i in range(resolution):
 
     
 
+'''
