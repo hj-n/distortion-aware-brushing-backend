@@ -13,7 +13,7 @@
 #elif __MACH__
 #include "/usr/local/opt/libomp/include/omp.h"
 #elif __linux__
-#include <omp.h>;
+#include <omp.h>
 #endif
 
 
@@ -42,7 +42,7 @@ void _Gaussian_filter_p(int resolution, float bandwidth, float point_x, float po
     float r, s = 2.0 * bandwidth * bandwidth;
 
 
-    #pragma omp parallel for num_threads(8) schedule(auto) shared(r,s)
+    #pragma omp parallel for num_threads(32) schedule(auto) shared(r,s)
     for(int x = 0; x < resolution; x++){
         for(int y = 0; y < resolution; y++){
             float dx = (float) x - point_x;
