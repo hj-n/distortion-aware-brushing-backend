@@ -90,13 +90,35 @@ def init():
     EMB        = normalize(json.load(emb_file))
     LABEL      = json.load(label_file)
 
+    # Should change file format later
+    for i, _ in enumerate(SIMILARITY):
+        SIMILARITY[i] = SIMILARITY[i]["similarity"]
+
+    SIMILARITY = np.array(SIMILARITY)
+
     return jsonify({
         "density": DENSITY,
         "emb"    : EMB
     })
 
+@app.route('/similarity')
+def similarity():
+    global SIMILARITY
+    index = request.args.get("index")
+    index = np.array(json.loads(index)["data"]).astype(np.int32)
+
+    list_similarity = SIMILARITY[index]
+    list_similarity[:, index] = np.zeros(len(index))
+    similarity_sum = np.sum(list_similarity, axis=0)
+    similarity_sum[index] = np.zeros(len(index))   # to get rid of selected points from max cal
+    similarity_sum /= np.max(similarity_sum)
+    similarity_sum[index] = np.ones(len(index))    # restore sim to 1 
+
+    return jsonify(similarity_sum.tolist())
+    # return "TEST"
+
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
 
 
 
