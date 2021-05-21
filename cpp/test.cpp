@@ -1,6 +1,6 @@
 /**
- * Code for Testing and Evaluationg Backend methods 
- * KDE / Marching Squares Algorithm
+ * Code for Testing and Evaluating Backend methods 
+ * KDE
  */
 
 #include "./helper/printKDE.hpp"
