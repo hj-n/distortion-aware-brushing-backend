@@ -3,38 +3,36 @@
  * KDE / Marching Squares Algorithm
  */
 
-// #include "./helper/printKDE.hpp"
-#include "kde.hpp"
+#include "./helper/printKDE.hpp"
+#include "kde.cpp"
 
-#define Bandwidth 0.0001
+#define Bandwidth 3
 
 
 int main(){
 
-    // int resolution;
-    // int num_point;
-    // int* point_coord;
-    // int num_index;
-    // int* index;
+    int resolution;
+    int num_point;
+    float* point_coord;
+    int num_index;
+    int* index;
+    float* output_pixel_info;
 
+    //make Input ( 일단은 num_point = num_index )
+    makeRandomInput(&resolution, &num_point, &point_coord, &num_index, &index, &output_pixel_info);
 
-    // //make Input ( 일단은 num_point = num_index )
-    // makeRandomInput(&resolution, &num_point, &point_coord, &num_index, &index);
+    //print Randomly maked input
+    printInput(num_point, point_coord, num_index, index);
 
-    // // //print Randomly maked input
-    // // printInput(num_point, point_coord, num_index, index);
-    // //print map ( resolution * resolution )
+    // // print map ( resolution * resolution )
     // printpoint(num_point, point_coord, resolution);
 
 
-    // //sizeof Pixel_info : [Max_Resolution][Max_Resolution]
-    // double** Pixel_info;
-    // //run 2D_KDE
-    // Pixel_info = _2D_Kernel_density_estimation(num_point, point_coord, num_index, index, Bandwidth, resolution);
+    //run 2D_KDE
+    _2D_Kernel_density_estimation(num_point, point_coord, num_index, index, Bandwidth, resolution, output_pixel_info);
 
+    //print Pixel_info
+    printPixel_info(output_pixel_info, resolution, 0.4); // Threshold = 0.4
     
-    // //print Pixel_info
-    // printPixel_info(Pixel_info, resolution, 0.4); // Threshold = 0.4
-    
-    // return 0;
+    return 0;
 }
