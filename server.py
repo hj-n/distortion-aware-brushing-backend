@@ -115,12 +115,12 @@ def similarity():
 
     list_similarity = SIMILARITY[index]
     similarity_sum = np.sum(list_similarity, axis=0)
-    # similarity_sum[index] = np.zeros(len(index))   # to get rid of selected points from max cal
-    # similarity_sum = np.divide(similarity_sum, DENSITY_NP)
     similarity_sum /= np.max(similarity_sum)
-    # similarity_sum[index] = np.ones(len(index))    # restore sim to 1 
 
     return jsonify(similarity_sum.tolist())
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
