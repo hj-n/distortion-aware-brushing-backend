@@ -6,6 +6,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pathlib import Path
 
+import json
+
 
 '''
 Libraries / methods for main Computation
@@ -40,11 +42,58 @@ SERVER CODE
 app = Flask(__name__)
 CORS(app)
 
+DATA_PATH = "./dataset/"
+
+METADATA   = None
+DENSITY    = None
+SIMILARITY = None
+EMB        = None
+LABEL      = None
+
+
+def parseArgs(request):
+    dataset = request.args.get('dataset', 'mnist') ## use spheres as default
+    method  = request.args.get('method', 'pca')
+    sample  = request.args.get('sample', '5')
+    return dataset, method, sample
+
+def normalize(positions):
+    positions = np.array(positions)
+    positions[:,0] = 2 * ((positions[:,0] - np.min(positions[:,0])) 
+                        / (np.max(positions[:,0]) - np.min(positions[:,0]))) - 1
+    positions[:,1] = 2 * ((positions[:,1] - np.min(positions[:,1])) 
+                        / (np.max(positions[:,1]) - np.min(positions[:,1]))) - 1
+    return positions.tolist()
 
 
 @app.route('/init')
 def init():
-    return "TEST"
+    global DATA_PATH
+    global METADATA
+    global DENSITY
+    global SIMILARITY
+
+    dataset, method, sample = parseArgs(request)
+    path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
+    if not Path(path + "snn_density.json").exists():
+        return "failed", 400
+
+    metadata_file = open(path + "metadata.json")
+    density_file = open(path + "snn_density.json")
+    similarity_file  = open(path + "snn_similarity.json")
+    emb_file = open(path + "emb.json")
+    label_file = open(path + "label.json")
+
+    METADATA   = json.load(metadata_file)
+    DENSITY    = json.load(density_file)
+    SIMILARITY = json.load(similarity_file)
+    EMB        = normalize(json.load(emb_file))
+    LABEL      = json.load(label_file)
+
+    return jsonify({
+        "density": DENSITY,
+        "emb"    : EMB
+    })
 
 if __name__ == '__main__':
     app.run()
