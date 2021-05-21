@@ -20,7 +20,7 @@ void _Marching_square_algorithm(float* output_pixel_info, float Threshold, int r
     for(int i = 0; i < resolution - 1; i++)
         for(int j = 0; j < resolution - 1; j++)
             for(int k = 0; k < 4; k++)
-                grid_info[(i * (resolution - 1) + j) * 4 + k] = (output_pixel_info[i * resolution + j + point_diff[k]] < Threshold);
+                grid_info[(i * (resolution - 1) + j) * 4 + k] = (output_pixel_info[i * resolution + j + point_diff[k]] >= Threshold);
     return;
 }
 extern "C" {
