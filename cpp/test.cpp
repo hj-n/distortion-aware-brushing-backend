@@ -4,7 +4,7 @@
  */
 
 #include "./helper/printKDE.hpp"
-#include "kde.cpp"
+#include "kde.hpp"
 
 #define Bandwidth 3
 

@@ -17,6 +17,8 @@ using namespace std;
 void _Marching_square_algorithm(float* output_pixel_info, float Threshold, int resolution, bool* grid_info){
     int point_diff[4] = {0, 1, resolution, resolution + 1};
     //#pragma omp parallel for num_threads(8) schedule(static)
+
+
     for(int i = 0; i < resolution - 1; i++)
         for(int j = 0; j < resolution - 1; j++)
             for(int k = 0; k < 4; k++)
