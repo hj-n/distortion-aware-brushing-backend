@@ -46,10 +46,11 @@ DATA_PATH = "./dataset/"
 
 METADATA   = None
 DENSITY    = None
-DENSITY_NP = None
 SIMILARITY = None
 EMB        = None
 LABEL      = None
+
+DENSITY_NORM = None
 
 
 def parseArgs(request):
@@ -73,7 +74,7 @@ def init():
     global METADATA
     global DENSITY
     global SIMILARITY
-    global DENSITY_NP
+    global DENSITY_NORM
 
     dataset, method, sample = parseArgs(request)
     path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
@@ -92,7 +93,10 @@ def init():
     EMB        = normalize(json.load(emb_file))
     LABEL      = json.load(label_file)
 
-    DENSITY_NP = np.array(DENSITY) * METADATA["max_snn_density"]
+    density_np = np.array(DENSITY) * METADATA["max_snn_density"]
+
+    DENSITY_NORM = (density_np - np.min(density_np))
+    DENSITY_NORM = (DENSITY_NORM / np.max(DENSITY_NORM)).tolist()
 
     # Should change file format later
     for i, _ in enumerate(SIMILARITY):
@@ -102,7 +106,7 @@ def init():
     SIMILARITY = np.array(SIMILARITY)
 
     return jsonify({
-        "density": DENSITY,
+        "density": DENSITY_NORM,
         "emb"    : EMB
     })
 
