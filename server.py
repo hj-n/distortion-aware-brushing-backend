@@ -58,6 +58,7 @@ DENSITY    = None
 SIMILARITY = None
 EMB        = None
 LABEL      = None
+POINT_NUM  = None
 
 DENSITY_NORM = None
 
@@ -76,6 +77,11 @@ def normalize(positions):
                         / (np.max(positions[:,1]) - np.min(positions[:,1]))) - 1
     return positions.tolist()
 
+def getArrayData(request, key_name):
+    array_data = request.args.get(key_name)
+    array_data = np.array(json.loads(array_data)["data"]).astype(np.int32)
+    return array_data
+
 
 @app.route('/init')
 def init():
@@ -84,6 +90,8 @@ def init():
     global DENSITY
     global SIMILARITY
     global DENSITY_NORM
+    global POINT_NUM
+    global EMB_1D
 
     dataset, method, sample = parseArgs(request)
     path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
@@ -101,9 +109,12 @@ def init():
     SIMILARITY = json.load(similarity_file)
     EMB        = normalize(json.load(emb_file))
     LABEL      = json.load(label_file)
+    
+    POINT_NUM  = len(LABEL)
+
+    EMB_1D     = np.array(EMB).reshape(POINT_NUM * 2)
 
     density_np = np.array(DENSITY) * METADATA["max_snn_density"]
-
     DENSITY_NORM = (density_np - np.min(density_np))
     DENSITY_NORM = (DENSITY_NORM / np.max(DENSITY_NORM)).tolist()
 
@@ -123,8 +134,7 @@ def init():
 def similarity():
     global SIMILARITY
 
-    index = request.args.get("index")
-    index = np.array(json.loads(index)["data"]).astype(np.int32)
+    index = getArrayData(request, "index")
 
     list_similarity = SIMILARITY[index]
     similarity_sum = np.sum(list_similarity, axis=0)
@@ -133,7 +143,32 @@ def similarity():
     return jsonify(similarity_sum.tolist())
 
 
+@app.route('/positionupdate')
+def position_update():
+    global POINT_NUM
+    global EMB_1D
 
+    ## variable setting for kernel density estimation
+    index_raw   = getArrayData(request, "index")
+    # cur_emb_raw = getArrayData(request, "emb") 
+    resolution  = int(request.args.get("resolution"))
+
+    index_num = len(index_raw)
+
+    cur_emb = (c_float * (POINT_NUM * 2))(*EMB_1D)
+    index   = (c_int * index_num)(*index_raw)
+
+    output_pixel_value_raw = np.zeros(resolution * resolution)
+    output_pixel_value = (c_float * (resolution * resolution))(*output_pixel_value_raw)
+
+    # run kde
+    kde_cpp(POINT_NUM, cur_emb, index_num, index, resolution, output_pixel_value)
+
+    kde_result =np.reshape(np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)).tolist()
+
+    return jsonify({
+        "kde_result": kde_result
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
