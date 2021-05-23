@@ -135,8 +135,8 @@ def similarity():
 
 
 
-# if __name__ == '__main__':
-#     app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
 
 
 
@@ -148,7 +148,7 @@ def similarity():
 TEST CODE
 '''
 
-
+'''
 
 #### TEST ####
 
@@ -221,3 +221,4 @@ for i in range(resolution - 1):
     print()
     
 
+'''
