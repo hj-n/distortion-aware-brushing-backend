@@ -40,9 +40,10 @@ msq_cpp.argtypes = [
     POINTER(c_float), ## output_pixel_info
     c_float,
     c_int,
-    POINTER(c_bool)
+    POINTER(c_bool),
+    POINTER(c_float)
 ]
-msq_cpp.restype = POINTER(c_float)
+msq_cpp.restype = c_int
 
 
 '''
@@ -201,7 +202,7 @@ resolution = 10
 
 num_points = 50000
 point_coord_raw = np.random.rand(num_points * 2).astype(np.float32) * resolution
-num_index = 30
+num_index = 1
 index_raw = np.random.randint(num_points, size=num_index)
 bandwidth = num_index**(-1./(2+4))
 
@@ -223,38 +224,47 @@ kde_time = timeit.timeit(kde_run, number=1)
 
 ## MSQ
 
-threshold = 0.5
+threshold = 0.1
 grid_info_raw = np.zeros((resolution + 1) * (resolution + 1) * 4).astype(np.bool)
 
 grid_info = (c_bool * ((resolution + 1) * (resolution + 1) * 4))(*grid_info_raw)
 
+msq_points_raw = np.zeros(resolution * resolution * 2).astype(np.float)
+msq_points = (c_float * (resolution * resolution * 2))(*msq_points_raw)
 
-msq_points = msq_cpp(output_pixel_value, threshold, resolution, grid_info) 
+msq_size = msq_cpp(output_pixel_value, threshold, resolution, grid_info, msq_points) 
+
+print(msq_points)
+print(msq_size)
 
 
+msq_points_result = np.reshape(
+    np.ctypeslib.as_array(msq_points)[:msq_size * 2], (msq_size, 2)
+)
 
+print(msq_points_result)
 
 
 result = np.reshape(
     np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
 )
 
-# # print(point_coord_raw[index_raw[0] * 2], point_coord_raw[index_raw[0] * 2 + 1])
+# print(point_coord_raw[index_raw[0] * 2], point_coord_raw[index_raw[0] * 2 + 1])
 
-# for i in range(resolution):
-#     for j in range(resolution):
-#         print(round(result[i][j], 2), end =" ")
-#     print()
+for i in range(resolution):
+    for j in range(resolution):
+        print(round(result[j][i], 2), end =" ")
+    print()
 
-# msq_result = np.reshape(
-#     np.ctypeslib.as_array(grid_info), (resolution + 1, resolution + 1, 4)
-# )
+msq_result = np.reshape(
+    np.ctypeslib.as_array(grid_info), (resolution + 1, resolution + 1, 4)
+)
 
-# for i in range(resolution - 1):
-#     for j in range(resolution - 1 ):
-#         re = 0
-#         for k in range(4):
-#             re = re + msq_result[i, j, k]
-#         print(re, end = " ")
-#     print()
+for i in range(resolution + 1):
+    for j in range(resolution + 1 ):
+        re = 0
+        for k in range(4):
+            re = re + msq_result[j, i, k]
+        print(re, end = " ")
+    print()
     

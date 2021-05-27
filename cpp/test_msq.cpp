@@ -44,7 +44,7 @@ int main(){
 
     // printInput_msq(output_pixel_info, resolution);
 
-    _Marching_square_algorithm(output_pixel_info, Threshold, resolution, grid_info);
+    // _Marching_square_algorithm(output_pixel_info, Threshold, resolution, grid_info);
 
     printGrid_info(grid_info, resolution);
 

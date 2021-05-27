@@ -124,7 +124,7 @@ EXTRACTION:
             
             case 10: 
                 if (last_dir == 'D') { v[0] = mix(ur_val, ul_val, step_x); v[1] = step_y;              dir = 'R'; break; }
-                else /* U */   { v[1] = mix(lr_val, ll_val, step_x); v[1] = step_y + 1;          dir = 'L'; break; } 
+                else /* U */   { v[0] = mix(lr_val, ll_val, step_x); v[1] = step_y + 1;          dir = 'L'; break; } 
         }
 
         // Debug code to identify the malfunction of upper switch-case statement
@@ -151,7 +151,7 @@ EXTRACTION:
     return points;
 }
 
-float* _Marching_square_algorithm(float* output_pixel_info, float Threshold, int resolution, bool* grid_info){
+int _Marching_square_algorithm(float* output_pixel_info, float Threshold, int resolution, bool* grid_info, float* points){
     int point_diff[4] = {0, resolution, 1, resolution + 1};
     int x_diff[4]     = {0, 1, 0, 1};
     int y_diff[4]     = {0, 0, 1, 1};
@@ -174,25 +174,24 @@ float* _Marching_square_algorithm(float* output_pixel_info, float Threshold, int
     vector<vector<float> > points_vec = extract_points(output_pixel_info, grid_info, resolution);
     int points_length = points_vec.size();
 
-    float* points = new float[points_length * 2];
     for(int i = 0; i < points_length; i++) {
         points[i * 2]     = points_vec[i][0];
         points[i * 2 + 1] = points_vec[i][1];
     }
 
 
-    return points;
+    return points_length;
 
 }
 extern "C" {
     // grid_info should be initialized as 0
-    float* marching_square_algorithm(
+    int marching_square_algorithm(
         float* output_pixel_info,
         float Threshold,
         int resolution,
-        bool* grid_info
+        bool* grid_info,
+        float* points
     ) { 
-        float* points = _Marching_square_algorithm(output_pixel_info, Threshold, resolution, grid_info);
-        return points;
+        return _Marching_square_algorithm(output_pixel_info, Threshold, resolution, grid_info, points);
     }
 }
