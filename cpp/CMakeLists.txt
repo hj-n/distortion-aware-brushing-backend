@@ -6,7 +6,7 @@ find_package(OpenMP REQUIRED)
 
 # SET ( CMAKE_VERBOSE_MAKEFILE true )
 
-SET ( BACK_METHODS kde.cpp msq.cpp )
+SET ( BACK_METHODS kde.cpp msq.cpp reposition.cpp )
 SET ( B_LIB backend )  ## target for shared backend library (will be called in python)
 SET ( B_LIB_DR ${CMAKE_CURRENT_LIST_DIR}/../lib )
 

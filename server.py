@@ -91,6 +91,7 @@ def rescalePoints(points, resolution, offset_scale):
 
 
 
+
 @app.route('/init')
 def init():
     global DATA_PATH
@@ -185,11 +186,9 @@ def position_update():
     )
 
 
-    ## CONVEX HULL
+    ## CONVEX HULL to get smmoth contour
     contour_hull = ConvexHull(contour_result)
     contour_result = contour_result[contour_hull.vertices]
-
-
 
     kde_result = np.reshape(
         np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
