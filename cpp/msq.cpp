@@ -176,8 +176,8 @@ int _Marching_square_algorithm(float* output_pixel_info, float Threshold, int re
     int points_length = points_vec.size();
 
     for(int i = 0; i < points_length; i++) {
-        points[i * 2]     = points_vec[i][0];
-        points[i * 2 + 1] = points_vec[i][1];
+        points[i * 2]     = points_vec[i][1];
+        points[i * 2 + 1] = points_vec[i][0];
     }
 
 

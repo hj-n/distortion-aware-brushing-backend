@@ -12,9 +12,10 @@ import json
 '''
 Libraries / methods for main Computation
 - kde_cpp : kernel density estimation
-- msq_cpp : marching squares algorithm (TODO)
+- msq_cpp : marching squares algorithm 
 '''
 from ctypes import *
+from scipy.spatial import ConvexHull
 import numpy as np
 import timeit
 import pyclipper
@@ -156,11 +157,13 @@ def position_update():
     global EMB_1D
 
     ## variable setting for kernel density estimation
-    index_raw   = getArrayData(request, "index")
-    resolution  = int(request.args.get("resolution"))
-    threshold   = float(request.args.get("threshold"))
+    index_raw    = getArrayData(request, "index")
+    resolution   = int(request.args.get("resolution"))
+    threshold    = float(request.args.get("threshold"))
     offset_scale = int(request.args.get("scale4offset"))
+    offset       = float(request.args.get("offset"))
 
+    
     index_num = len(index_raw)
     cur_emb = (c_float * (POINT_NUM * 2))(*((EMB_1D + 1) * (resolution * 0.5)))
     index   = (c_int * index_num)(*index_raw)
@@ -179,7 +182,12 @@ def position_update():
     
     contour_result = np.reshape(
         np.ctypeslib.as_array(contour)[:c_size * 2] * offset_scale, (c_size, 2)
-    ).tolist()
+    )
+
+
+    ## CONVEX HULL
+    contour_hull = ConvexHull(contour_result)
+    contour_result = contour_result[contour_hull.vertices]
 
 
 
@@ -193,7 +201,7 @@ def position_update():
 
     pco = pyclipper.PyclipperOffset()
     pco.AddPath(contour_result, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDPOLYGON)   
-    contour_offsetted = pco.Execute(offset_scale)[0]
+    contour_offsetted = pco.Execute(offset_scale * offset)[0]
 
     contour_result = rescalePoints(contour_result, resolution, offset_scale)
     contour_offsetted = rescalePoints(contour_offsetted, resolution, offset_scale)
