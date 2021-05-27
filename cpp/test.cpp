@@ -11,6 +11,8 @@
 
 int main(){
 
+    // cout <<"WHY?? " << endl;
+
     int resolution;
     int num_point;
     float* point_coord;

@@ -17,6 +17,7 @@ Libraries / methods for main Computation
 from ctypes import *
 import numpy as np
 import timeit
+import pyclipper
 
 LIB_PATH = "./lib/libbackend.so"
 
@@ -41,7 +42,7 @@ msq_cpp.argtypes = [
     c_int,
     POINTER(c_bool)
 ]
-msq_cpp.restype = None
+msq_cpp.restype = POINTER(c_float)
 
 
 '''
@@ -150,28 +151,37 @@ def position_update():
 
     ## variable setting for kernel density estimation
     index_raw   = getArrayData(request, "index")
-    # cur_emb_raw = getArrayData(request, "emb") 
     resolution  = int(request.args.get("resolution"))
 
-    index_num = len(index_raw)
 
+    threshold   = float(request.args.get("threshold"))
+
+    index_num = len(index_raw)
     cur_emb = (c_float * (POINT_NUM * 2))(*EMB_1D)
     index   = (c_int * index_num)(*index_raw)
-
     output_pixel_value_raw = np.zeros(resolution * resolution)
     output_pixel_value = (c_float * (resolution * resolution))(*output_pixel_value_raw)
-
+    grid_info_raw = np.zeros((resolution - 1) * (resolution - 1) * 4).astype(np.bool)
+    grid_info = (c_bool * ((resolution - 1) * (resolution - 1) * 4))(*grid_info_raw)
+    
     # run kde
     kde_cpp(POINT_NUM, cur_emb, index_num, index, resolution, output_pixel_value)
+    msq_cpp(output_pixel_value, threshold, resolution, grid_info)
 
-    kde_result =np.reshape(np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)).tolist()
+    kde_result = np.reshape(
+        np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
+    ).tolist()
+    msq_result = np.reshape(
+        np.ctypeslib.as_array(grid_info), (resolution - 1, resolution - 1, 4)
+    ).tolist()
 
     return jsonify({
-        "kde_result": kde_result
+        "kde_result": kde_result,
+        "msq_result": msq_result
     })
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# if __name__ == '__main__':
+#     app.run(debug=True)
 
 
 
@@ -183,7 +193,6 @@ if __name__ == '__main__':
 TEST CODE
 '''
 
-'''
 
 #### TEST ####
 
@@ -192,7 +201,7 @@ resolution = 10
 
 num_points = 50000
 point_coord_raw = np.random.rand(num_points * 2).astype(np.float32) * resolution
-num_index = 2
+num_index = 30
 index_raw = np.random.randint(num_points, size=num_index)
 bandwidth = num_index**(-1./(2+4))
 
@@ -215,45 +224,40 @@ kde_time = timeit.timeit(kde_run, number=1)
 ## MSQ
 
 threshold = 0.5
-grid_info_raw = np.zeros((resolution - 1) * (resolution - 1) * 4).astype(np.bool)
+grid_info_raw = np.zeros((resolution + 1) * (resolution + 1) * 4).astype(np.bool)
 
-grid_info = (c_bool * ((resolution - 1) * (resolution - 1) * 4))(*grid_info_raw)
+grid_info = (c_bool * ((resolution + 1) * (resolution + 1) * 4))(*grid_info_raw)
 
-def msq_run():
-    msq_cpp(output_pixel_value, threshold, resolution, grid_info) 
 
-msq_time = timeit.timeit(msq_run, number=1)
+a = msq_cpp(output_pixel_value, threshold, resolution, grid_info) 
 
-print(kde_time)
-print(msq_time)
 
+
+print("WoW!!")
 
 
 
 
+# result = np.reshape(
+#     np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
+# )
 
-result = np.reshape(
-    np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
-)
+# # print(point_coord_raw[index_raw[0] * 2], point_coord_raw[index_raw[0] * 2 + 1])
 
-# print(point_coord_raw[index_raw[0] * 2], point_coord_raw[index_raw[0] * 2 + 1])
+# for i in range(resolution):
+#     for j in range(resolution):
+#         print(round(result[i][j], 2), end =" ")
+#     print()
 
-for i in range(resolution):
-    for j in range(resolution):
-        print(round(result[i][j], 2), end =" ")
-    print()
+# msq_result = np.reshape(
+#     np.ctypeslib.as_array(grid_info), (resolution + 1, resolution + 1, 4)
+# )
 
-msq_result = np.reshape(
-    np.ctypeslib.as_array(grid_info), (resolution - 1, resolution - 1, 4)
-)
-
-for i in range(resolution - 1):
-    for j in range(resolution - 1 ):
-        re = 0
-        for k in range(4):
-            re = re + msq_result[i, j, k]
-        print(re, end = " ")
-    print()
+# for i in range(resolution - 1):
+#     for j in range(resolution - 1 ):
+#         re = 0
+#         for k in range(4):
+#             re = re + msq_result[i, j, k]
+#         print(re, end = " ")
+#     print()
     
-
-'''
