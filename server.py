@@ -85,6 +85,11 @@ def getArrayData(request, key_name):
     return array_data
 
 
+def rescalePoints(points, resolution, offset_scale):
+    return np.array(points).astype(np.float32) / (0.5 * resolution * offset_scale) - 1
+
+
+
 @app.route('/init')
 def init():
     global DATA_PATH
@@ -114,7 +119,7 @@ def init():
     
     POINT_NUM  = len(LABEL)
 
-    EMB_1D     = np.array(EMB).reshape(POINT_NUM * 2)
+    EMB_1D     = (np.array(EMB)).reshape(POINT_NUM * 2)
 
     density_np = np.array(DENSITY) * METADATA["max_snn_density"]
     DENSITY_NORM = (density_np - np.min(density_np))
@@ -153,36 +158,57 @@ def position_update():
     ## variable setting for kernel density estimation
     index_raw   = getArrayData(request, "index")
     resolution  = int(request.args.get("resolution"))
-
-
     threshold   = float(request.args.get("threshold"))
+    offset_scale = int(request.args.get("scale4offset"))
 
     index_num = len(index_raw)
-    cur_emb = (c_float * (POINT_NUM * 2))(*EMB_1D)
+    cur_emb = (c_float * (POINT_NUM * 2))(*((EMB_1D + 1) * (resolution * 0.5)))
     index   = (c_int * index_num)(*index_raw)
     output_pixel_value_raw = np.zeros(resolution * resolution)
     output_pixel_value = (c_float * (resolution * resolution))(*output_pixel_value_raw)
-    grid_info_raw = np.zeros((resolution - 1) * (resolution - 1) * 4).astype(np.bool)
-    grid_info = (c_bool * ((resolution - 1) * (resolution - 1) * 4))(*grid_info_raw)
+    grid_info_raw = np.zeros((resolution + 1) * (resolution + 1) * 4).astype(np.bool)
+    grid_info = (c_bool * ((resolution + 1) * (resolution + 1) * 4))(*grid_info_raw)
     
     # run kde
     kde_cpp(POINT_NUM, cur_emb, index_num, index, resolution, output_pixel_value)
-    msq_cpp(output_pixel_value, threshold, resolution, grid_info)
+
+    contour_raw = np.zeros(resolution * resolution * 2).astype(np.float)
+    contour = (c_float * (resolution * resolution * 2))(*contour_raw)
+
+    c_size = msq_cpp(output_pixel_value, threshold, resolution, grid_info, contour) 
+    
+    contour_result = np.reshape(
+        np.ctypeslib.as_array(contour)[:c_size * 2] * offset_scale, (c_size, 2)
+    ).tolist()
+
+
 
     kde_result = np.reshape(
         np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
     ).tolist()
     msq_result = np.reshape(
-        np.ctypeslib.as_array(grid_info), (resolution - 1, resolution - 1, 4)
+        np.ctypeslib.as_array(grid_info), (resolution + 1, resolution + 1, 4)
     ).tolist()
+
+
+    pco = pyclipper.PyclipperOffset()
+    pco.AddPath(contour_result, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDPOLYGON)   
+    contour_offsetted = pco.Execute(offset_scale)[0]
+
+    contour_result = rescalePoints(contour_result, resolution, offset_scale)
+    contour_offsetted = rescalePoints(contour_offsetted, resolution, offset_scale)
+    
+
 
     return jsonify({
         "kde_result": kde_result,
-        "msq_result": msq_result
+        "msq_result": msq_result,
+        "contour": contour_result.tolist(),
+        "contour_offsetted": contour_offsetted.tolist()
     })
 
-# if __name__ == '__main__':
-#     app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
 
 
 
@@ -193,7 +219,7 @@ def position_update():
 '''
 TEST CODE
 '''
-
+'''
 
 #### TEST ####
 
@@ -268,3 +294,4 @@ for i in range(resolution + 1):
         print(re, end = " ")
     print()
     
+'''

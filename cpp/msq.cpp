@@ -169,7 +169,8 @@ int _Marching_square_algorithm(float* output_pixel_info, float Threshold, int re
 
                 grid_info[(i * (resolution + 1) + j) * 4 + k] = val;
             }
-          
+    
+  
     
     vector<vector<float> > points_vec = extract_points(output_pixel_info, grid_info, resolution);
     int points_length = points_vec.size();
@@ -192,6 +193,7 @@ extern "C" {
         bool* grid_info,
         float* points
     ) { 
+ 
         return _Marching_square_algorithm(output_pixel_info, Threshold, resolution, grid_info, points);
     }
 }
