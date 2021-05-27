@@ -30,9 +30,6 @@ int get_case(bool* grid_info, int x, int y, int resolution) {
     result += (lr == true ? 2 : 0);
     result += (ll == true ? 1 : 0);
 
-    // cout << ul << " " << ur << endl;
-    // cout << ll << " " << lr << endl;
-    // cout << result << endl;
 
     return result;
 }
@@ -68,17 +65,9 @@ vector<vector<float> > extract_points(float* pixel_info, bool* grid_info, int re
 
 EXTRACTION:
     char dir = 'X';
+    char last_dir;
 
     int runNum = 0;
-
-
-    // TEST PRINT CODE
-    // for (int j = 0; j < resolution; j++){
-    //     for (int i = 0; i < resolution; i++) {
-    //         cout << pixel_info[i * resolution + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
 
     do {
         vector<float> v(2);
@@ -102,19 +91,15 @@ EXTRACTION:
         float lr_val = vals[3];
 
 
-        // int grid_x = step_x + 1;
-        // int grid_y = step_y + 1;
+        int grid_x = step_x + 1;
+        int grid_y = step_y + 1;
 
-        // bool ul = grid_info[(grid_x * (resolution + 1) + grid_y) * 4];
-        // bool ur = grid_info[(grid_x * (resolution + 1) + grid_y) * 4 + 1];
-        // bool ll = grid_info[(grid_x * (resolution + 1) + grid_y) * 4 + 2];
-        // bool lr = grid_info[(grid_x * (resolution + 1) + grid_y) * 4 + 3];
+        bool ul = grid_info[(grid_x * (resolution + 1) + grid_y) * 4];
+        bool ur = grid_info[(grid_x * (resolution + 1) + grid_y) * 4 + 1];
+        bool ll = grid_info[(grid_x * (resolution + 1) + grid_y) * 4 + 2];
+        bool lr = grid_info[(grid_x * (resolution + 1) + grid_y) * 4 + 3];
 
 
-        // cout << "==========" << endl;
-        // cout << step_x << " " << step_y << endl;
-        // cout << ul_val << " " << ur_val <<  endl;
-        // cout << ll_val << " " << lr_val << endl;
 
         // refer https://en.wikipedia.org/wiki/Marching_squares for the rules 
         switch(get_case(grid_info, step_x, step_y, resolution)) {
@@ -134,11 +119,11 @@ EXTRACTION:
             case 14: v[0] = mix(ll_val, lr_val, step_x); v[1] = step_y;                          dir = 'L'; break;
 
             case 5: 
-                if (dir == 'L') { v[0] = step_x + 1;      v[1] = mix(ur_val, lr_val, step_y);     dir = 'D'; break; }
+                if (last_dir == 'L') { v[0] = step_x + 1;      v[1] = mix(ur_val, lr_val, step_y);     dir = 'D'; break; }
                 else /* R */   { v[0] = step_x;          v[1] = mix(ul_val, ll_val, step_y);     dir = 'U'; break; }
             
             case 10: 
-                if (dir == 'D') { v[0] = mix(ur_val, ul_val, step_x); v[1] = step_y;              dir = 'R'; break; }
+                if (last_dir == 'D') { v[0] = mix(ur_val, ul_val, step_x); v[1] = step_y;              dir = 'R'; break; }
                 else /* U */   { v[1] = mix(lr_val, ll_val, step_x); v[1] = step_y + 1;          dir = 'L'; break; } 
         }
 
@@ -154,10 +139,11 @@ EXTRACTION:
             case 'L': step_x--; break;
         } 
 
+        last_dir = dir;
         dir = 'X';
 
         runNum ++;
-        assert(runNum < 625);
+        assert(runNum < 600);
 
 
     } while (!(step_x == fx && step_y == fy));
@@ -194,8 +180,6 @@ float* _Marching_square_algorithm(float* output_pixel_info, float Threshold, int
         points[i * 2 + 1] = points_vec[i][1];
     }
 
-    // cout << points[0] << " " << points[1] << endl;
-    // float *points;
 
     return points;
 

@@ -229,18 +229,15 @@ grid_info_raw = np.zeros((resolution + 1) * (resolution + 1) * 4).astype(np.bool
 grid_info = (c_bool * ((resolution + 1) * (resolution + 1) * 4))(*grid_info_raw)
 
 
-a = msq_cpp(output_pixel_value, threshold, resolution, grid_info) 
-
-
-
-print("WoW!!")
+msq_points = msq_cpp(output_pixel_value, threshold, resolution, grid_info) 
 
 
 
 
-# result = np.reshape(
-#     np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
-# )
+
+result = np.reshape(
+    np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
+)
 
 # # print(point_coord_raw[index_raw[0] * 2], point_coord_raw[index_raw[0] * 2 + 1])
 
