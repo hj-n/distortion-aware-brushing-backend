@@ -16,6 +16,8 @@ Libraries / methods for main Computation
 '''
 from ctypes import *
 from scipy.spatial import ConvexHull
+from scipy.spatial import Delaunay
+
 import numpy as np
 import timeit
 import pyclipper
@@ -88,6 +90,49 @@ def getArrayData(request, key_name):
 
 def rescalePoints(points, resolution, offset_scale):
     return np.array(points).astype(np.float32) / (0.5 * resolution * offset_scale) - 1
+    
+
+def offsetting(points, offset):
+    result = []
+    for i, _ in enumerate(points):
+        vec1 = points[i - 1] - points[i]
+        vec2 = points[(i + 1) % len(points)] - points[i] 
+        u_vec1 = vec1 / np.linalg.norm(vec1)
+        u_vec2 = vec2 / np.linalg.norm(vec2)
+
+        vec = - (u_vec1 + u_vec2)
+        u_vec = vec / np.linalg.norm(vec)
+
+        offsetted = points[i] + u_vec * offset
+
+        print(offsetted)
+        result.append(offsetted)
+    
+    return np.array(result)
+
+
+def distance(p, lp_1, lp_2):
+    ortho_dist = np.linalg.norm(np.cross(lp_2 - lp_1, lp_1 - p)) / np.linalg.norm(lp_2 - lp_1)
+    p1_dist = np.linalg.norm(p - lp_1)
+    p2_dist = np.linalg.norm(p - lp_2)
+    if (ortho_dist < p1_dist and ortho_dist < p2_dist):
+        return ortho_dist, "o"
+    else:
+        return ((p1_dist, "1") if p1_dist < p2_dist else (p2_dist, "2")), 
+
+
+def find_nearest_line(p, points):
+    dist = 10
+    idx = [-1, -1]
+    mode = ""
+    for i in range(-1, len(points) - 1):
+        cur_dist, cur_mode = distance(p, points[i], points[i + 1])
+        if cur_dist < dist:
+            dist = cur_dist
+            mode = cur_mode
+            idx[0] = i
+            idx[1] = i + 1
+    return dist, idx, mode
 
 
 
@@ -101,6 +146,7 @@ def init():
     global DENSITY_NORM
     global POINT_NUM
     global EMB_1D
+    global EMB
 
     dataset, method, sample = parseArgs(request)
     path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
@@ -121,7 +167,8 @@ def init():
     
     POINT_NUM  = len(LABEL)
 
-    EMB_1D     = (np.array(EMB)).reshape(POINT_NUM * 2)
+    EMB = np.array(EMB)
+    EMB_1D     = (EMB).reshape(POINT_NUM * 2)
 
     density_np = np.array(DENSITY) * METADATA["max_snn_density"]
     DENSITY_NORM = (density_np - np.min(density_np))
@@ -136,7 +183,7 @@ def init():
 
     return jsonify({
         "density": DENSITY_NORM,
-        "emb"    : EMB
+        "emb"    : EMB.tolist()
     })
 
 @app.route('/similarity')
@@ -156,6 +203,7 @@ def similarity():
 def position_update():
     global POINT_NUM
     global EMB_1D
+    global EMB
 
     ## variable setting for kernel density estimation
     index_raw    = getArrayData(request, "index")
@@ -173,45 +221,81 @@ def position_update():
     grid_info_raw = np.zeros((resolution + 1) * (resolution + 1) * 4).astype(np.bool)
     grid_info = (c_bool * ((resolution + 1) * (resolution + 1) * 4))(*grid_info_raw)
     
-    # run kde
+    # Run KDE
     kde_cpp(POINT_NUM, cur_emb, index_num, index, resolution, output_pixel_value)
 
     contour_raw = np.zeros(resolution * resolution * 2).astype(np.float)
     contour = (c_float * (resolution * resolution * 2))(*contour_raw)
 
+    ## Run MSQ
     c_size = msq_cpp(output_pixel_value, threshold, resolution, grid_info, contour) 
     
     contour_result = np.reshape(
         np.ctypeslib.as_array(contour)[:c_size * 2] * offset_scale, (c_size, 2)
     )
 
-
-    ## CONVEX HULL to get smmoth contour
+    ## CONVEX HULL to get smmoth / convex contour
     contour_hull = ConvexHull(contour_result)
     contour_result = contour_result[contour_hull.vertices]
 
-    kde_result = np.reshape(
-        np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
-    ).tolist()
-    msq_result = np.reshape(
-        np.ctypeslib.as_array(grid_info), (resolution + 1, resolution + 1, 4)
-    ).tolist()
 
-
-    pco = pyclipper.PyclipperOffset()
-    pco.AddPath(contour_result, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDPOLYGON)   
-    contour_offsetted = pco.Execute(offset_scale * offset)[0]
-
+    ## Offsetting
+    contour_offsetted = offsetting(contour_result, offset_scale * offset)
     contour_result = rescalePoints(contour_result, resolution, offset_scale)
     contour_offsetted = rescalePoints(contour_offsetted, resolution, offset_scale)
+    '''
+
+    ## Points containment test 
+    ### Current implementation: naive approach (using scipy)
+    ### Will be accelerated if further performance gain is required
+
+   
+    contour_hull = Delaunay(contour_result)
+    contour_offsetted_hull = Delaunay(contour_offsetted)
+    # find_simplex(p)>=0
+
+    inside_contour = contour_hull.find_simplex(EMB) >= 0
+    inside_contour_offsetted = contour_offsetted_hull.find_simplex(EMB) >= 0
+    
+    is_considering = np.zeros(len(EMB))
+    for idx in index_raw:
+        is_considering[idx] = 1
+
+    ## Repositioning
+    for (i, p) in enumerate(EMB):
+        ## If condsidering points
+        if is_considering[idx] == 1:
+            if inside_contour[idx]:
+                continue
+            else:
+                c_dist, c_idx, c_mode = find_nearest_line(p, contour_result)
+                
+        ## If not considered
+        else:
+            if inside_contour[idx]:
+                pass
+            elif inside_contour_offsetted[idx]:
+                pass
+            else:
+                pass
+        
     
 
+    # kde_result = np.reshape(
+    #     np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
+    # ).tolist()
+    # msq_result = np.reshape(
+    #     np.ctypeslib.as_array(grid_info), (resolution + 1, resolution + 1, 4)
+    # ).tolist()
+    
+'''
 
     return jsonify({
-        "kde_result": kde_result,
-        "msq_result": msq_result,
+        # "kde_result": kde_result,
+        # "msq_result": msq_result,
         "contour": contour_result.tolist(),
-        "contour_offsetted": contour_offsetted.tolist()
+        "contour_offsetted": contour_offsetted.tolist(),
+        "emb": EMB.tolist()
     })
 
 if __name__ == '__main__':
