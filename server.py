@@ -20,6 +20,7 @@ from scipy.spatial import Delaunay
 
 import numpy as np
 import timeit
+import time
 import pyclipper
 
 LIB_PATH = "./lib/libbackend.so"
@@ -56,16 +57,15 @@ SERVER CODE
 app = Flask(__name__)
 CORS(app)
 
-DATA_PATH = "./dataset/"
+def get_similarity_list(index, similarity, avg_sim):
+    list_similarity = similarity[index]
+    list_similarity_sum = np.sum(list_similarity, axis=0)
+    list_similarity_sum /= list_similarity.shape[0]
+    list_similarity_sum /= avg_sim
+    list_similarity_sum = np.clip(list_similarity_sum, 0, 1)
 
-METADATA   = None
-DENSITY    = None
-SIMILARITY = None
-EMB        = None
-LABEL      = None
-POINT_NUM  = None
+    return list_similarity_sum
 
-DENSITY_NORM = None
 
 
 def parseArgs(request):
@@ -112,12 +112,6 @@ def offsetting(points, offset):
 
 def distance(p, lp_1, lp_2):
     ortho_dist = np.linalg.norm(np.cross(lp_2 - lp_1, lp_1 - p)) / np.linalg.norm(lp_2 - lp_1)
-    # p1_dist = np.linalg.norm(p - lp_1)
-    # p2_dist = np.linalg.norm(p - lp_2)
-    # if (ortho_dist < p1_dist and ortho_dist < p2_dist):
-    #     return ortho_dist
-    # else:
-    #     return (p1_dist if p1_dist < p2_dist else p2_dist), 
     return ortho_dist
 
 
@@ -130,7 +124,7 @@ def find_nearest_line(p, points):
             dist = cur_dist
             idx[0] = i 
             idx[1] = i + 1
-    return dist, idx
+    return idx
 
 def get_intersect(a1, a2, b1, b2):
     """ 
@@ -152,28 +146,14 @@ def get_intersect(a1, a2, b1, b2):
 
 ## IO_RATIO: 1 if inner, 0 if outer
 def get_new_position(inner_p1, inner_p2, outer_p1, outer_p2, p, io_ratio):
-    # temp = p[0]
-    # p[0] = p[1]
-    # p[1] = temp
     slope = inner_p2 - inner_p1
     p_f = slope + p
-
-    # print(inner_p1, outer_p1)
-    # print(p, p_f)
-
-    # mid_intersect = get_intersect((inner_p1 + inner_p2) / 2, (outer_p1 + outer_p2) / 2, p, p_f)
     left_intersect = get_intersect(inner_p1, outer_p1, p, p_f)
     right_intersect = get_intersect(inner_p2, outer_p2, p, p_f)
 
-    # print(left_intersect, right_intersect)
-
-    # mid_dist = np.linalg.norm(p - mid_intersect)
     left_dist = np.linalg.norm(p - left_intersect)
     right_dist = np.linalg.norm(p - right_intersect)
 
-    # print(left_dist, right_dist)
-
-   
     lr_ratio = 1 - (left_dist / (left_dist + right_dist))
     
     inner_p = inner_p1 * lr_ratio + inner_p2 * (1 - lr_ratio)
@@ -185,6 +165,17 @@ def get_new_position(inner_p1, inner_p2, outer_p1, outer_p2, p, io_ratio):
 
     
     
+DATA_PATH = "./dataset/"
+
+METADATA   = None
+DENSITY    = None
+SIMILARITY = None
+EMB        = None
+LABEL      = None
+POINT_NUM  = None
+AVERGE_SIM = None   
+
+DENSITY_NORM = None
 
 
 
@@ -199,6 +190,7 @@ def init():
     global POINT_NUM
     global EMB_1D
     global EMB
+    global AVERAGE_SIM
 
     dataset, method, sample = parseArgs(request)
     path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
@@ -233,6 +225,16 @@ def init():
 
     SIMILARITY = np.array(SIMILARITY)
 
+    ## Computing average similarity
+    AVERAGE_SIM = []
+
+    for i in range(SIMILARITY.shape[0]):
+        current_sim = SIMILARITY[i]
+        current_sim = current_sim[current_sim != 0]
+        AVERAGE_SIM.append(np.average(current_sim))
+    
+    AVERAGE_SIM = np.array(AVERAGE_SIM)
+
     return jsonify({
         "density": DENSITY_NORM,
         "emb"    : EMB.tolist()
@@ -241,14 +243,12 @@ def init():
 @app.route('/similarity')
 def similarity():
     global SIMILARITY
+    global AVERAGE_SIM
 
     index = getArrayData(request, "index")
+    list_similarity_sum = get_similarity_list(index, SIMILARITY, AVERAGE_SIM)
 
-    list_similarity = SIMILARITY[index]
-    similarity_sum = np.sum(list_similarity, axis=0)
-    similarity_sum /= np.max(similarity_sum)
-
-    return jsonify(similarity_sum.tolist())
+    return jsonify(list_similarity_sum.tolist())
 
 
 @app.route('/positionupdate')
@@ -256,6 +256,8 @@ def position_update():
     global POINT_NUM
     global EMB_1D
     global EMB
+    global SIMILARITY
+    global AVERAGE_SIM
 
     ## variable setting for kernel density estimation
     index_raw    = getArrayData(request, "index")
@@ -264,7 +266,8 @@ def position_update():
     offset_scale = int(request.args.get("scale4offset"))
     offset       = float(request.args.get("offset"))
 
-    
+    sims = get_similarity_list(index_raw, SIMILARITY, AVERAGE_SIM)
+
     index_num = len(index_raw)
     cur_emb = (c_float * (POINT_NUM * 2))(*((EMB_1D + 1) * (resolution * 0.5)))
     index   = (c_int * index_num)(*index_raw)
@@ -290,7 +293,6 @@ def position_update():
     contour_hull = ConvexHull(contour_result)
     contour_result = contour_result[contour_hull.vertices]
 
-
     ## Offsetting
     contour_offsetted = offsetting(contour_result, offset_scale * offset)
     contour_faraway = offsetting(contour_result, offset_scale * resolution)
@@ -314,50 +316,31 @@ def position_update():
         is_considering[idx] = 1
 
 
-
+  
     ## Repositioning
     ### SHOULD BE ACCELEARATED
-
     new_positions = []
     for (i, p) in enumerate(EMB):
-        ## If condsidering points
-        if is_considering[i] == 1:
-            if inside_contour[i]:
+        if sims[i] >= 0.8:
+            if is_considering[i] == 1:
                 continue
             else:
-                dist, indices = find_nearest_line(p, contour_offsetted)
+                indices = find_nearest_line(p, contour_offsetted)
                 
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
                                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                                           p, 1)
+                                           p, sims[i])
+
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-        ## If not considered
         else:
-            if inside_contour[i]:
-                dist, indices = find_nearest_line(p, contour_offsetted)
+            if inside_contour_offsetted[i]:
+                indices = find_nearest_line(p, contour_offsetted)
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-                                           contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                                           p, 0.7)
+                                        contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                        p, sims[i])
+                new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
 
-                new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-            elif inside_contour_offsetted[i]:
-                dist, indices = find_nearest_line(p, contour_offsetted)
-                new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                            p, 0.3)
-                new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-            else:
-                pass
         
-    
-
-    # kde_result = np.reshape(
-    #     np.ctypeslib.as_array(output_pixel_value), (resolution, resolution)
-    # ).tolist()
-    # msq_result = np.reshape(
-    #     np.ctypeslib.as_array(grid_info), (resolution + 1, resolution + 1, 4)
-    # ).tolist()
-  
 
     return jsonify({
         "contour": contour_result.tolist(),
