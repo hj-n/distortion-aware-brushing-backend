@@ -105,7 +105,6 @@ def offsetting(points, offset):
 
         offsetted = points[i] + u_vec * offset
 
-        print(offsetted)
         result.append(offsetted)
     
     return np.array(result)
@@ -113,26 +112,79 @@ def offsetting(points, offset):
 
 def distance(p, lp_1, lp_2):
     ortho_dist = np.linalg.norm(np.cross(lp_2 - lp_1, lp_1 - p)) / np.linalg.norm(lp_2 - lp_1)
-    p1_dist = np.linalg.norm(p - lp_1)
-    p2_dist = np.linalg.norm(p - lp_2)
-    if (ortho_dist < p1_dist and ortho_dist < p2_dist):
-        return ortho_dist, "o"
-    else:
-        return ((p1_dist, "1") if p1_dist < p2_dist else (p2_dist, "2")), 
+    # p1_dist = np.linalg.norm(p - lp_1)
+    # p2_dist = np.linalg.norm(p - lp_2)
+    # if (ortho_dist < p1_dist and ortho_dist < p2_dist):
+    #     return ortho_dist
+    # else:
+    #     return (p1_dist if p1_dist < p2_dist else p2_dist), 
+    return ortho_dist
 
 
 def find_nearest_line(p, points):
-    dist = 10
+    dist = 1000000
     idx = [-1, -1]
-    mode = ""
     for i in range(-1, len(points) - 1):
-        cur_dist, cur_mode = distance(p, points[i], points[i + 1])
+        cur_dist = distance(p, points[i], points[i + 1])
         if cur_dist < dist:
             dist = cur_dist
-            mode = cur_mode
-            idx[0] = i
+            idx[0] = i 
             idx[1] = i + 1
-    return dist, idx, mode
+    return dist, idx
+
+def get_intersect(a1, a2, b1, b2):
+    """ 
+    Returns the point of intersection of the lines passing through a2,a1 and b2,b1.
+    a1: [x, y] a point on the first line
+    a2: [x, y] another point on the first line
+    b1: [x, y] a point on the second line
+    b2: [x, y] another point on the second line
+    """
+    s = np.vstack([a1,a2,b1,b2])        # s for stacked
+    h = np.hstack((s, np.ones((4, 1)))) # h for homogeneous
+    l1 = np.cross(h[0], h[1])           # get first line
+    l2 = np.cross(h[2], h[3])           # get second line
+    x, y, z = np.cross(l1, l2)          # point of intersection
+    if z == 0:                          # lines are parallel
+        return (float('inf'), float('inf'))
+    return (x/z, y/z)
+
+
+## IO_RATIO: 1 if inner, 0 if outer
+def get_new_position(inner_p1, inner_p2, outer_p1, outer_p2, p, io_ratio):
+    # temp = p[0]
+    # p[0] = p[1]
+    # p[1] = temp
+    slope = inner_p2 - inner_p1
+    p_f = slope + p
+
+    # print(inner_p1, outer_p1)
+    # print(p, p_f)
+
+    # mid_intersect = get_intersect((inner_p1 + inner_p2) / 2, (outer_p1 + outer_p2) / 2, p, p_f)
+    left_intersect = get_intersect(inner_p1, outer_p1, p, p_f)
+    right_intersect = get_intersect(inner_p2, outer_p2, p, p_f)
+
+    # print(left_intersect, right_intersect)
+
+    # mid_dist = np.linalg.norm(p - mid_intersect)
+    left_dist = np.linalg.norm(p - left_intersect)
+    right_dist = np.linalg.norm(p - right_intersect)
+
+    # print(left_dist, right_dist)
+
+   
+    lr_ratio = 1 - (left_dist / (left_dist + right_dist))
+    
+    inner_p = inner_p1 * lr_ratio + inner_p2 * (1 - lr_ratio)
+    outer_p = outer_p1 * lr_ratio + outer_p2 * (1 - lr_ratio)
+
+    new_position = inner_p * io_ratio + outer_p * (1 - io_ratio)
+
+    return new_position
+
+    
+    
 
 
 
@@ -241,18 +293,18 @@ def position_update():
 
     ## Offsetting
     contour_offsetted = offsetting(contour_result, offset_scale * offset)
+    contour_faraway = offsetting(contour_result, offset_scale * resolution)
+
     contour_result = rescalePoints(contour_result, resolution, offset_scale)
     contour_offsetted = rescalePoints(contour_offsetted, resolution, offset_scale)
-    '''
+    contour_faraway = rescalePoints(contour_faraway, resolution, offset_scale)
+
 
     ## Points containment test 
     ### Current implementation: naive approach (using scipy)
     ### Will be accelerated if further performance gain is required
-
-   
     contour_hull = Delaunay(contour_result)
     contour_offsetted_hull = Delaunay(contour_offsetted)
-    # find_simplex(p)>=0
 
     inside_contour = contour_hull.find_simplex(EMB) >= 0
     inside_contour_offsetted = contour_offsetted_hull.find_simplex(EMB) >= 0
@@ -261,21 +313,39 @@ def position_update():
     for idx in index_raw:
         is_considering[idx] = 1
 
+
+
     ## Repositioning
+    ### SHOULD BE ACCELEARATED
+
+    new_positions = []
     for (i, p) in enumerate(EMB):
         ## If condsidering points
-        if is_considering[idx] == 1:
-            if inside_contour[idx]:
+        if is_considering[i] == 1:
+            if inside_contour[i]:
                 continue
             else:
-                c_dist, c_idx, c_mode = find_nearest_line(p, contour_result)
+                dist, indices = find_nearest_line(p, contour_offsetted)
                 
+                new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                                           contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                           p, 1)
+                new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
         ## If not considered
         else:
-            if inside_contour[idx]:
-                pass
-            elif inside_contour_offsetted[idx]:
-                pass
+            if inside_contour[i]:
+                dist, indices = find_nearest_line(p, contour_offsetted)
+                new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                                           contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                           p, 0.7)
+
+                new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+            elif inside_contour_offsetted[i]:
+                dist, indices = find_nearest_line(p, contour_offsetted)
+                new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                            p, 0.3)
+                new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
             else:
                 pass
         
@@ -287,15 +357,12 @@ def position_update():
     # msq_result = np.reshape(
     #     np.ctypeslib.as_array(grid_info), (resolution + 1, resolution + 1, 4)
     # ).tolist()
-    
-'''
+  
 
     return jsonify({
-        # "kde_result": kde_result,
-        # "msq_result": msq_result,
         "contour": contour_result.tolist(),
         "contour_offsetted": contour_offsetted.tolist(),
-        "emb": EMB.tolist()
+        "new_positions": new_positions,
     })
 
 if __name__ == '__main__':
@@ -307,10 +374,10 @@ if __name__ == '__main__':
 
 
 
+
 '''
 TEST CODE
-'''
-'''
+
 
 #### TEST ####
 
