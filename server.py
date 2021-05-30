@@ -348,7 +348,7 @@ def position_update():
 
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
                                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                                           p, 1)
+                                           p, sims[i])
 
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
         else:
