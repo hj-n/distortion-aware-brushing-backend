@@ -236,8 +236,8 @@ def init():
     AVERAGE_SIM = np.array(AVERAGE_SIM)
 
     return jsonify({
-        "density": DENSITY_NORM,
-        "emb"    : EMB.tolist()
+        "density" : DENSITY_NORM,
+        "emb"     : EMB.tolist()
     })
 
 @app.route('/similarity')
@@ -260,11 +260,14 @@ def position_update():
     global AVERAGE_SIM
 
     ## variable setting for kernel density estimation
-    index_raw    = getArrayData(request, "index")
-    resolution   = int(request.args.get("resolution"))
-    threshold    = float(request.args.get("threshold"))
-    offset_scale = int(request.args.get("scale4offset"))
-    offset       = float(request.args.get("offset"))
+    index_raw     = getArrayData(request, "index")
+    group_indices = getArrayData(request, "group")
+    resolution    = int(request.args.get("resolution"))
+    threshold     = float(request.args.get("threshold"))
+    offset_scale  = int(request.args.get("scale4offset"))
+    offset        = float(request.args.get("offset"))
+    sim_threshold = float(request.args.get("simthreshold"))
+
 
     sims = get_similarity_list(index_raw, SIMILARITY, AVERAGE_SIM)
 
@@ -315,21 +318,37 @@ def position_update():
     for idx in index_raw:
         is_considering[idx] = 1
 
+    is_in_group = np.zeros(len(EMB))
+    for idx in group_indices:
+        is_in_group[idx] = 1
 
   
     ## Repositioning
     ### SHOULD BE ACCELEARATED
     new_positions = []
     for (i, p) in enumerate(EMB):
-        if sims[i] >= 0.8:
-            if is_considering[i] == 1:
-                continue
-            else:
+        if is_in_group[i] == 1:
+            if not inside_contour[i]:
                 indices = find_nearest_line(p, contour_offsetted)
                 
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
                                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                                           p, sims[i])
+                                           p, 1)
+                new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+                continue
+            else:
+                continue
+
+        if sims[i] >= sim_threshold:
+            if is_considering[i] == 1:
+                continue
+            else:
+                start = time.time()
+                indices = find_nearest_line(p, contour_offsetted)
+
+                new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                                           contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                           p, 1)
 
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
         else:
@@ -340,7 +359,12 @@ def position_update():
                                         p, sims[i])
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
 
-        
+    
+    for datum in new_positions:
+        EMB[datum[0]][0] = datum[1]
+        EMB[datum[0]][1] = datum[2]
+
+    EMB_1D = (EMB).reshape(POINT_NUM * 2)
 
     return jsonify({
         "contour": contour_result.tolist(),
