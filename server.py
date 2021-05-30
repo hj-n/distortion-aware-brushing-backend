@@ -173,7 +173,7 @@ SIMILARITY = None
 EMB        = None
 LABEL      = None
 POINT_NUM  = None
-AVERGE_SIM = None   
+AVERAGE_SIM = None   
 
 DENSITY_NORM = None
 
