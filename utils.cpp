@@ -50,7 +50,7 @@ void find_nearest_line(float* p, float* points, int length, int* index) {
         }
     }
 }
-void get_intersect(float* a1, float* a2, float* b1, float* b2, float intersect[2]) {
+void get_intersect(float* a1, float* a2, float* b1, float* b2, float* intersect) {
     float d = (a1[0] - a2[0]) * (b1[1] - b2[1]) - (a1[1] - a2[1]) * (b1[0] - b2[0]);
 
     if (d == 0) {
@@ -63,7 +63,7 @@ void get_intersect(float* a1, float* a2, float* b1, float* b2, float intersect[2
     intersect[0] = (pre * (b1[0] - b2[0]) - (a1[0] - a2[0]) * post) / d;
     intersect[1] = (pre * (b1[1] - b2[1]) - (a1[1] - a2[1]) * post) / d;
 }
-void get_new_position(float* inner_p1, float* inner_p2, float* outer_p1, float* outer_p2, float* p, float io_ratio, float new_position[2]) {
+void get_new_position(float* inner_p1, float* inner_p2, float* outer_p1, float* outer_p2, float* p, float io_ratio, float* new_position) {
     float slope[2], p_f[2];
     sub_array(inner_p2, inner_p1, slope, 2);
     add_array(slope, p, p_f, 2);
