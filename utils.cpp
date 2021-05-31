@@ -1,11 +1,11 @@
 #include <iostream>
 #include <math.h>
 
-float crossProduct(float a[2], float b[2]) {
+float crossProduct(float* a, float* b) {
     return a[0] * b[1] - a[1] * b[0];
 }
 
-float norm(float a[2]) {
+float norm(float* a) {
     return sqrt(a[0] * a[0] + a[1] * a[1]);
 }
 
@@ -28,14 +28,14 @@ void add_array_by_ratio(float* a, float* b, float ratio, float* result, int size
 }
 
 
-void distance(float p[2], float lp_1[2], float lp_2[2], float* dist) {
+void distance(float* p, float* lp_1, float* lp_2, float* dist) {
     float AB[2], AC[2];
     sub_array(lp_1, lp_2, AB, 2);
     sub_array(lp_1, p, AC, 2);
     (*dist) = abs(crossProduct(AB, AC)) / norm(AB);
 }
 
-void find_nearest_line(float p[2], float* points, int length, int* index) {
+void find_nearest_line(float* p, float* points, int length, int* index) {
     float dist;
     distance(p, &points[2 * length - 2], &points[0], &dist);
     index[0] = length - 1;
@@ -50,7 +50,7 @@ void find_nearest_line(float p[2], float* points, int length, int* index) {
         }
     }
 }
-void get_intersect(float a1[2], float a2[2], float b1[2], float b2[2], float intersect[2]) {
+void get_intersect(float* a1, float* a2, float* b1, float* b2, float intersect[2]) {
     float d = (a1[0] - a2[0]) * (b1[1] - b2[1]) - (a1[1] - a2[1]) * (b1[0] - b2[0]);
 
     if (d == 0) {
@@ -63,7 +63,7 @@ void get_intersect(float a1[2], float a2[2], float b1[2], float b2[2], float int
     intersect[0] = (pre * (b1[0] - b2[0]) - (a1[0] - a2[0]) * post) / d;
     intersect[1] = (pre * (b1[1] - b2[1]) - (a1[1] - a2[1]) * post) / d;
 }
-void get_new_position(float inner_p1[2], float inner_p2[2], float outer_p1[2], float outer_p2[2], float p[2], float io_ratio, float new_position[2]) {
+void get_new_position(float* inner_p1, float* inner_p2, float* outer_p1, float* outer_p2, float* p, float io_ratio, float new_position[2]) {
     float slope[2], p_f[2];
     sub_array(inner_p2, inner_p1, slope, 2);
     add_array(slope, p, p_f, 2);
