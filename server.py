@@ -64,6 +64,9 @@ def get_similarity_list(index, similarity, avg_sim):
     list_similarity_sum /= avg_sim
     list_similarity_sum = np.clip(list_similarity_sum, 0, 1)
 
+    if (len(index) == 1):
+        list_similarity_sum[index[0]] = 1
+
     return list_similarity_sum
 
 
@@ -171,13 +174,15 @@ METADATA   = None
 DENSITY    = None
 SIMILARITY = None
 EMB        = None
+EMB_1D     = None
 LABEL      = None
 POINT_NUM  = None
 AVERAGE_SIM = None   
 
 DENSITY_NORM = None
 
-
+ORIGIN_EMB    = None
+ORIGIN_EMB_1D = None
 
 
 @app.route('/init')
@@ -191,6 +196,8 @@ def init():
     global EMB_1D
     global EMB
     global AVERAGE_SIM
+    global ORIGIN_EMB
+    global ORIGIN_EMB_1D
 
     dataset, method, sample = parseArgs(request)
     path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
@@ -201,18 +208,22 @@ def init():
     density_file = open(path + "snn_density.json")
     similarity_file  = open(path + "snn_similarity.json")
     emb_file = open(path + "emb.json")
+    origin_emb_file = open(path + "emb.json")
     label_file = open(path + "label.json")
 
     METADATA   = json.load(metadata_file)
     DENSITY    = json.load(density_file)
     SIMILARITY = json.load(similarity_file)
     EMB        = normalize(json.load(emb_file))
+    ORIGIN_EMB = normalize(json.load(origin_emb_file))
     LABEL      = json.load(label_file)
     
     POINT_NUM  = len(LABEL)
 
     EMB = np.array(EMB)
     EMB_1D     = (EMB).reshape(POINT_NUM * 2)
+    ORIGIN_EMB = np.array(ORIGIN_EMB)
+    ORIGIN_EMB_1D = (ORIGIN_EMB).reshape(POINT_NUM * 2)
 
     density_np = np.array(DENSITY) * METADATA["max_snn_density"]
     DENSITY_NORM = (density_np - np.min(density_np))
@@ -250,6 +261,36 @@ def similarity():
 
     return jsonify(list_similarity_sum.tolist())
 
+@app.route('/restoreorigin')
+def restore_origin():
+    global ORIGIN_EMB
+    global ORIGIN_EMB_1D
+    global EMB
+    global EMB_1D
+
+    np.copyto(EMB, ORIGIN_EMB)
+    np.copyto(EMB_1D, ORIGIN_EMB_1D)
+
+    return "success"
+
+@app.route('/restoreidx')
+def restore_idx():
+    global ORIGIN_EMB
+    global ORIGIN_EMB_1D
+    global EMB
+    global EMB_1D
+    global POINT_NUM
+    # temp_emb = None
+    # np.copyto(temp_emb, EMB)
+    index = getArrayData(request, "index")
+
+    for i in index:
+        EMB[i][0] = ORIGIN_EMB[i][0]
+        EMB[i][1] = ORIGIN_EMB[i][1]
+    EMB_1D = (EMB).reshape(POINT_NUM * 2)
+        
+    return "success"
+
 
 @app.route('/positionupdate')
 def position_update():
@@ -259,14 +300,16 @@ def position_update():
     global SIMILARITY
     global AVERAGE_SIM
 
+    print(request)
     ## variable setting for kernel density estimation
     index_raw     = getArrayData(request, "index")
     group_indices = getArrayData(request, "group")
     resolution    = int(request.args.get("resolution"))
     threshold     = float(request.args.get("threshold"))
-    offset_scale  = int(request.args.get("scale4offset"))
     offset        = float(request.args.get("offset"))
     sim_threshold = float(request.args.get("simthreshold"))
+
+    offset_scale  = 100
 
 
     sims = get_similarity_list(index_raw, SIMILARITY, AVERAGE_SIM)
@@ -298,7 +341,7 @@ def position_update():
 
     ## Offsetting
     contour_offsetted = offsetting(contour_result, offset_scale * offset)
-    contour_faraway = offsetting(contour_result, offset_scale * resolution)
+    contour_faraway = offsetting(contour_result, offset_scale * offset * offset)
 
     contour_result = rescalePoints(contour_result, resolution, offset_scale)
     contour_offsetted = rescalePoints(contour_offsetted, resolution, offset_scale)
@@ -327,37 +370,87 @@ def position_update():
     ### SHOULD BE ACCELEARATED
     new_positions = []
     for (i, p) in enumerate(EMB):
-        if is_in_group[i] == 1:
+        if is_in_group[i] == 1: ## if in groups
             if not inside_contour[i]:
                 indices = find_nearest_line(p, contour_offsetted)
-                
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
                                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                                           p, 1)
+                                           p, 1.1)
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-                continue
-            else:
-                continue
-
-        if sims[i] >= sim_threshold:
-            if is_considering[i] == 1:
-                continue
-            else:
-                start = time.time()
-                indices = find_nearest_line(p, contour_offsetted)
-
+        elif is_considering[i] == 1:   ## if mousehovering
+            # if inside_contour[i]:
+            if sims[i] < sim_threshold:
+                indices = find_nearest_line(p, contour_result)
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-                                           contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                                           p, sims[i])
-
+                                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                            p, sims[i])
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-        else:
-            if inside_contour_offsetted[i]:
+            # else:
+            #     indices = find_nearest_line(p, contour_offsetted)
+            #     new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+            #                                contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+            #                                p, 1.1)
+            #     new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+        else: ## remaining points
+            if inside_contour[i]:
+                if sims[i] < sim_threshold:
+                    indices = find_nearest_line(p, contour_result)
+                    new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                                               contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                               p, sims[i])
+                    new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+            elif inside_contour_offsetted[i]:
+                # if sims[i] >= sim_threshold:
+                #     indices = find_nearest_line(p, contour_offsetted)
+                #     new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                #                                contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                #                                p, 1.2)
+                #     new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+                # else:
+                curr_sim = 1 if sims[i] > 1 else sims[i]
                 indices = find_nearest_line(p, contour_offsetted)
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-                                        contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                                        p, sims[i])
+                                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                            p, curr_sim)
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+            else:
+                if sims[i] >= sim_threshold:
+                    curr_sim = 1 if sims[i] > 1 else sims[i]
+                    indices = find_nearest_line(p, contour_faraway)
+                    new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                                               contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                               p, curr_sim)
+                    new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+
+
+
+
+
+
+
+
+
+        
+
+        # if sims[i] > sim_threshold:
+        #     if is_considering[i] == 1:
+        #         continue
+        #     else:
+        #         start = time.time()
+        #         indices = find_nearest_line(p, contour_offsetted)
+
+        #         new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+        #                                    contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+        #                                    p, 1.2)
+
+        #         new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+        # else:
+        #     if inside_contour_offsetted[i]:
+        #         indices = find_nearest_line(p, contour_offsetted)
+        #         new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+        #                                 contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+        #                                 p, sims[i])
+        #         new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
 
     
     for datum in new_positions:
