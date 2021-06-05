@@ -270,7 +270,18 @@ def restore_origin():
 
     np.copyto(EMB, ORIGIN_EMB)
     np.copyto(EMB_1D, ORIGIN_EMB_1D)
+    return "success"
 
+
+@app.route('/updateorigin')
+def update_origin():
+    global ORIGIN_EMB
+    global ORIGIN_EMB_1D
+    global EMB
+    global EMB_1D
+
+    np.copyto(ORIGIN_EMB, EMB)
+    np.copyto(ORIGIN_EMB_1D, EMB_1D)
     return "success"
 
 @app.route('/restoreidx')
@@ -365,7 +376,8 @@ def position_update():
     for idx in group_indices:
         is_in_group[idx] = 1
 
-  
+    
+    print(sim_threshold)
     ## Repositioning
     ### SHOULD BE ACCELEARATED
     new_positions = []
@@ -378,19 +390,12 @@ def position_update():
                                            p, 1.1)
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
         elif is_considering[i] == 1:   ## if mousehovering
-            # if inside_contour[i]:
             if sims[i] < sim_threshold:
                 indices = find_nearest_line(p, contour_result)
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
                                             contour_offsetted[indices[0]], contour_offsetted[indices[1]],
                                             p, sims[i])
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-            # else:
-            #     indices = find_nearest_line(p, contour_offsetted)
-            #     new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-            #                                contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-            #                                p, 1.1)
-            #     new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
         else: ## remaining points
             if inside_contour[i]:
                 if sims[i] < sim_threshold:
@@ -400,13 +405,6 @@ def position_update():
                                                p, sims[i])
                     new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
             elif inside_contour_offsetted[i]:
-                # if sims[i] >= sim_threshold:
-                #     indices = find_nearest_line(p, contour_offsetted)
-                #     new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-                #                                contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                #                                p, 1.2)
-                #     new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-                # else:
                 curr_sim = 1 if sims[i] > 1 else sims[i]
                 indices = find_nearest_line(p, contour_offsetted)
                 new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
@@ -421,36 +419,6 @@ def position_update():
                                                contour_offsetted[indices[0]], contour_offsetted[indices[1]],
                                                p, curr_sim)
                     new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-
-
-
-
-
-
-
-
-
-        
-
-        # if sims[i] > sim_threshold:
-        #     if is_considering[i] == 1:
-        #         continue
-        #     else:
-        #         start = time.time()
-        #         indices = find_nearest_line(p, contour_offsetted)
-
-        #         new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-        #                                    contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-        #                                    p, 1.2)
-
-        #         new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
-        # else:
-        #     if inside_contour_offsetted[i]:
-        #         indices = find_nearest_line(p, contour_offsetted)
-        #         new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-        #                                 contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-        #                                 p, sims[i])
-        #         new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
 
     
     for datum in new_positions:
