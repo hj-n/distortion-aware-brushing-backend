@@ -302,6 +302,29 @@ def restore_idx():
         
     return "success"
 
+@app.route('/updateembdiff')
+def update_emb_diff():
+    global ORIGIN_EMB
+    global ORIGIN_EMB_1D
+    global EMB
+    global EMB_1D
+    global POINT_NUM
+
+    index  = getArrayData(request, "index")
+    x_diff = float(request.args.get("xDiff"))
+    y_diff = float(request.args.get("yDiff"))
+
+    for i in index:
+        EMB[i][0] += x_diff
+        EMB[i][1] -= y_diff
+        ORIGIN_EMB[i][0] += x_diff
+        ORIGIN_EMB[i][1] -= y_diff
+    EMB_1D = (EMB).reshape(POINT_NUM * 2)
+    ORIGIN_EMB_1D = (ORIGIN_EMB).reshape(POINT_NUM * 2)
+
+    return "success"
+
+
 
 @app.route('/positionupdate')
 def position_update():
