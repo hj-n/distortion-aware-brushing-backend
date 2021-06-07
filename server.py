@@ -5,6 +5,7 @@ FLASK SERVER Libaray import
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pathlib import Path
+import logging
 
 import json
 
@@ -53,6 +54,8 @@ msq_cpp.restype = c_int
 '''
 SERVER CODE
 '''
+# log = logging.getLogger('werkzeug')
+# log.setLevel(logging.ERROR)
 
 app = Flask(__name__)
 CORS(app)
@@ -334,7 +337,6 @@ def position_update():
     global SIMILARITY
     global AVERAGE_SIM
 
-    print(request)
     ## variable setting for kernel density estimation
     index_raw     = getArrayData(request, "index")
     group_indices = getArrayData(request, "group")
@@ -400,7 +402,6 @@ def position_update():
         is_in_group[idx] = 1
 
     
-    print(sim_threshold)
     ## Repositioning
     ### SHOULD BE ACCELEARATED
     new_positions = []
