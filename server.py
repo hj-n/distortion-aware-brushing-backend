@@ -401,6 +401,8 @@ def position_update():
     for idx in group_indices:
         is_in_group[idx] = 1
 
+    points_from_outside = []
+
     
     ## Repositioning
     ### SHOULD BE ACCELEARATED
@@ -444,6 +446,8 @@ def position_update():
                                                p, curr_sim)
                     new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
 
+                    points_from_outside.append(i)
+
     
     for datum in new_positions:
         EMB[datum[0]][0] = datum[1]
@@ -455,6 +459,7 @@ def position_update():
         "contour": contour_result.tolist(),
         "contour_offsetted": contour_offsetted.tolist(),
         "new_positions": new_positions,
+        "points_from_outside": points_from_outside
     })
 
 if __name__ == '__main__':
