@@ -12,3 +12,5 @@ exec
 *CMakeFiles/
 
 *.vscode/
+
+*.DS_Store

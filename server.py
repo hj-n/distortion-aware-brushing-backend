@@ -254,6 +254,19 @@ def init():
         "emb"     : EMB.tolist()
     })
 
+@app.route('/simmatrix')
+def sim_matrix():
+    dataset, method, sample = parseArgs(request)
+    path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
+    
+    similarity_file  = open(path + "snn_similarity.json")
+    simmatrix = json.load(similarity_file)
+    for i, _ in enumerate(simmatrix):
+        simmatrix[i] = simmatrix[i]["similarity"]
+        simmatrix[i][i] = 0
+
+    return jsonify(simmatrix)
+
 @app.route('/similarity')
 def similarity():
     global SIMILARITY
