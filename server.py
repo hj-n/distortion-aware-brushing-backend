@@ -212,16 +212,16 @@ def init():
     similarity_file  = open(path + "snn_similarity.json")
     emb_file = open(path + "emb.json")
     origin_emb_file = open(path + "emb.json")
-    label_file = open(path + "label.json")
+    # label_file = open(path + "label.json")
 
     METADATA   = json.load(metadata_file)
     DENSITY    = json.load(density_file)
     SIMILARITY = json.load(similarity_file)
     EMB        = normalize(json.load(emb_file))
     ORIGIN_EMB = normalize(json.load(origin_emb_file))
-    LABEL      = json.load(label_file)
+    # LABEL      = json.load(label_file)
     
-    POINT_NUM  = len(LABEL)
+    POINT_NUM  = len(EMB)
 
     EMB = np.array(EMB)
     EMB_1D     = (EMB).reshape(POINT_NUM * 2)
