@@ -348,9 +348,11 @@ def calculate_metric():
     global EMB
     global LABEL
 
+    dataset, method, sample = parseArgs(request)
     clustered_label = getArrayData(request, "clusteredlabel")
     label_num = int(request.args.get("labelnum"))
-    clusteredMetric(EMB, LABEL, clustered_label, label_num)
+    
+    clusteredMetric(EMB, LABEL, clustered_label, label_num, dataset, method, sample)
    
     return "success"
 

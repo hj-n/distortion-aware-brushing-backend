@@ -4,6 +4,7 @@ from sklearn.metrics import mutual_info_score, normalized_mutual_info_score, sil
 from sklearn.metrics import pairwise_distances
 from validclust import dunn
 
+import datetime
 import numpy as np
 import json
 
@@ -71,7 +72,7 @@ def davis(points, labels):
 def silhouette(points, labels):
 	return (silhouette_score(points, labels) + 1) / 2
 
-def dun(dist, labels):
+def dun(dist, labels): #score has no bound
     return dunn(dist, labels)
 
 '''
@@ -119,10 +120,15 @@ def clusteredMetric(
 	points,
     class_label,
     clustered_label,
-    label_num
+    label_num,
+    dataset,
+    method,
+    sample
 ):
-    file_path_label = "./userstudy/dataset_method_samplerate_clustered_label.json"
-    file_path_result = "./userstudy/dataset_method_samplerate_metric_result.json"
+
+    nowDate = datetime.datetime.now()
+    file_path_label = "./userstudy/" + dataset + "_" + method + "_" + sample + "_clustered_label_" + nowDate.strftime("%Y-%m-%d_%H_%M_%S")+ ".json"
+    file_path_result = "./userstudy/" + dataset + "_" + method + "_" + sample + "_metric_result_" + nowDate.strftime("%Y-%m-%d_%H_%M_%S")+ ".json"
 
     label_data = clustered_label.tolist()
 
