@@ -18,6 +18,7 @@ Libraries / methods for main Computation
 from ctypes import *
 from scipy.spatial import ConvexHull
 from scipy.spatial import Delaunay
+from src.calculateMetric import clusteredMetric
 
 import numpy as np
 import timeit
@@ -201,6 +202,7 @@ def init():
     global AVERAGE_SIM
     global ORIGIN_EMB
     global ORIGIN_EMB_1D
+    global LABEL
 
     dataset, method, sample = parseArgs(request)
     path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
@@ -212,14 +214,14 @@ def init():
     similarity_file  = open(path + "snn_similarity.json")
     emb_file = open(path + "emb.json")
     origin_emb_file = open(path + "emb.json")
-    # label_file = open(path + "label.json")
+    label_file = open(path + "label.json")
 
     METADATA   = json.load(metadata_file)
     DENSITY    = json.load(density_file)
     SIMILARITY = json.load(similarity_file)
     EMB        = normalize(json.load(emb_file))
     ORIGIN_EMB = normalize(json.load(origin_emb_file))
-    # LABEL      = json.load(label_file)
+    LABEL      = json.load(label_file)
     
     POINT_NUM  = len(EMB)
 
@@ -227,6 +229,7 @@ def init():
     EMB_1D     = (EMB).reshape(POINT_NUM * 2)
     ORIGIN_EMB = np.array(ORIGIN_EMB)
     ORIGIN_EMB_1D = (ORIGIN_EMB).reshape(POINT_NUM * 2)
+    LABEL = np.array(LABEL)
 
     density_np = np.array(DENSITY) * METADATA["max_snn_density"]
     DENSITY_NORM = (density_np - np.min(density_np))
@@ -340,7 +343,18 @@ def update_emb_diff():
 
     return "success"
 
+@app.route('/calculatemetric')
+def calculate_metric():
+    global EMB
+    global LABEL
 
+    dataset, method, sample = parseArgs(request)
+    clustered_label = getArrayData(request, "clusteredlabel")
+    label_num = int(request.args.get("labelnum"))
+    
+    clusteredMetric(EMB, LABEL, clustered_label, label_num, dataset, method, sample)
+   
+    return "success"
 
 @app.route('/positionupdate')
 def position_update():
@@ -368,13 +382,13 @@ def position_update():
     index   = (c_int * index_num)(*index_raw)
     output_pixel_value_raw = np.zeros(resolution * resolution)
     output_pixel_value = (c_float * (resolution * resolution))(*output_pixel_value_raw)
-    grid_info_raw = np.zeros((resolution + 1) * (resolution + 1) * 4).astype(np.bool)
+    grid_info_raw = np.zeros((resolution + 1) * (resolution + 1) * 4).astype(np.bool_)
     grid_info = (c_bool * ((resolution + 1) * (resolution + 1) * 4))(*grid_info_raw)
     
     # Run KDE
     kde_cpp(POINT_NUM, cur_emb, index_num, index, resolution, output_pixel_value)
 
-    contour_raw = np.zeros(resolution * resolution * 2).astype(np.float)
+    contour_raw = np.zeros(resolution * resolution * 2).astype(np.float64)
     contour = (c_float * (resolution * resolution * 2))(*contour_raw)
 
     ## Run MSQ
