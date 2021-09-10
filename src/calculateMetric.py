@@ -22,7 +22,7 @@ def check_separability(
     return_dict = {}
     dist = pairwise_distances(points)
 
-    if(label_num >= 2):
+    if(label_num >= 1):
         calinski_result = calinski(points, clustered_label)
         return_dict["calinski"] = calinski_result
         davis_result = davis(points, clustered_label)
