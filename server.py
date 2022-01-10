@@ -62,9 +62,14 @@ app = Flask(__name__)
 CORS(app)
 
 def get_similarity_list(index, similarity, avg_sim):
+
+    global REAL_SIM_THRESHOLD
     list_similarity = similarity[index]
     list_similarity_sum = np.sum(list_similarity, axis=0)
     list_similarity_sum /= list_similarity.shape[0]
+
+   
+
     list_similarity_sum /= avg_sim
     list_similarity_sum = np.clip(list_similarity_sum, 0, 1)
 
@@ -181,12 +186,16 @@ EMB        = None
 EMB_1D     = None
 LABEL      = None
 POINT_NUM  = None
-AVERAGE_SIM = None   
+AVERAGE_SIM = None  
+ATTR       = None
+UNNOMARL_RAW = None
 
 DENSITY_NORM = None
 
 ORIGIN_EMB    = None
 ORIGIN_EMB_1D = None
+
+REAL_SIM_THRESHOLD = 0.1 ## should sync with JS files (Brushing.js)
 
 
 @app.route('/init')
@@ -203,6 +212,8 @@ def init():
     global ORIGIN_EMB
     global ORIGIN_EMB_1D
     global LABEL
+    global ATTR
+    global UNNORMAL_RAW
 
     dataset, method, sample = parseArgs(request)
     path = DATA_PATH + dataset + "/" + method + "/" + sample + "/"
@@ -214,14 +225,26 @@ def init():
     similarity_file  = open(path + "snn_similarity.json")
     emb_file = open(path + "emb.json")
     origin_emb_file = open(path + "emb.json")
-    label_file = open(path + "label.json")
+
+    if Path(path + "label.json").exists():
+        label_file = open(path + "label.json")
+        LABEL      = json.load(label_file)
+
+
+    if Path(path + "attr.json").exists():
+        attr_file = open(path + "attr.json")
+        ATTR      = json.load(attr_file)
+    
+    if Path(path + "unnormal_raw.json").exists():
+        unnormal_raw_file = open(path + "unnormal_raw.json")
+        UNNORMAL_RAW = json.load(unnormal_raw_file)
 
     METADATA   = json.load(metadata_file)
     DENSITY    = json.load(density_file)
     SIMILARITY = json.load(similarity_file)
     EMB        = normalize(json.load(emb_file))
     ORIGIN_EMB = normalize(json.load(origin_emb_file))
-    LABEL      = json.load(label_file)
+    
     
     POINT_NUM  = len(EMB)
 
@@ -247,7 +270,7 @@ def init():
 
     for i in range(SIMILARITY.shape[0]):
         current_sim = SIMILARITY[i]
-        current_sim = current_sim[current_sim != 0]
+        current_sim = current_sim[current_sim > REAL_SIM_THRESHOLD]
         AVERAGE_SIM.append(np.average(current_sim))
     
     AVERAGE_SIM = np.array(AVERAGE_SIM)
@@ -256,6 +279,40 @@ def init():
         "density" : DENSITY_NORM,
         "emb"     : EMB.tolist()
     })
+
+@app.route('/pcp')
+def pcp():
+
+    global ATTR
+    global UNNORMAL_RAW
+
+    return jsonify({
+        "attr": ATTR,
+        "uraw": UNNORMAL_RAW
+    })
+
+
+@app.route('/updateRealSimThreshold')
+def update_real_sim_threshold():
+    global REAL_SIM_THRESHOLD
+    global AVERAGE_SIM
+    global SIMILARITY
+
+    REAL_SIM_THRESHOLD = float(request.args.get("realSimThreshold"))
+
+    print(REAL_SIM_THRESHOLD)
+
+    AVERAGE_SIM = []
+
+    for i in range(SIMILARITY.shape[0]):
+        current_sim = SIMILARITY[i]
+        current_sim = current_sim[current_sim > REAL_SIM_THRESHOLD]
+        AVERAGE_SIM.append(np.average(current_sim))
+    
+    AVERAGE_SIM = np.array(AVERAGE_SIM)
+
+
+    return "success"
 
 @app.route('/simmatrix')
 def sim_matrix():
@@ -276,6 +333,7 @@ def similarity():
     global AVERAGE_SIM
 
     index = getArrayData(request, "index")
+    # real_sim_threshold = float(request.args.get("realSimThreshold")) ## not used
     list_similarity_sum = get_similarity_list(index, SIMILARITY, AVERAGE_SIM)
 
     return jsonify(list_similarity_sum.tolist())
@@ -363,6 +421,7 @@ def position_update():
     global EMB
     global SIMILARITY
     global AVERAGE_SIM
+    global DENSITY
 
     ## variable setting for kernel density estimation
     index_raw     = getArrayData(request, "index")
@@ -371,6 +430,7 @@ def position_update():
     threshold     = float(request.args.get("threshold"))
     offset        = float(request.args.get("offset"))
     sim_threshold = float(request.args.get("simthreshold"))
+    status        = request.args.get("status")
 
     offset_scale  = 100
 
@@ -425,8 +485,43 @@ def position_update():
         is_considering[idx] = 1
 
     is_in_group = np.zeros(len(EMB))
+
+    
     for idx in group_indices:
         is_in_group[idx] = 1
+
+    is_in_real_group = np.zeros(len(EMB))
+    if (status == "initiate"):
+        max_density_idx = -1
+        max_density = -1
+        for idx in index_raw:
+            if (DENSITY[idx] > max_density):
+                max_density = DENSITY[idx]
+                max_density_idx = idx
+        is_in_real_group[max_density_idx] = 1
+        sumsum = 0
+        for idx in index_raw:
+            print(1)
+            if (SIMILARITY[idx, max_density_idx] / AVERAGE_SIM[max_density_idx] > sim_threshold):
+                
+                is_in_real_group[idx] = 1
+                # sumsum += 1
+        # print(sumsum)
+
+
+
+    # is_in_real_group = np.zeros(len(EMB))
+    # max_density_idx = -1
+    # max_density = -1
+    # for idx in group_indices:
+    # #     if (DENSITY[idx] > max_density):
+    # #         max_density = DENSITY[idx]
+    # #         max_density_idx = idx
+    # # is_in_real_group[max_density_idx] = 1
+    # # for idx in group_indices:
+    # #     if (SIMILARITY[idx, max_density_idx] > sim_threshold):
+    # #         is_in_real_group[idx] = 1
+    #     is_in_group[idx] = 1
 
     points_from_outside = []
 
@@ -442,14 +537,31 @@ def position_update():
                                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
                                            p, 1.1)
                 new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+            # elif sims[i] < sim_threshold:
+            #         indices = find_nearest_line(p, contour_result)
+            #         new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+            #                                    contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+            #                                    p, sims[i])
+            #         new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
         elif is_considering[i] == 1:   ## if mousehovering
-            if sims[i] < sim_threshold:
-                indices = find_nearest_line(p, contour_result)
-                new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
-                                            contour_offsetted[indices[0]], contour_offsetted[indices[1]],
-                                            p, sims[i])
-                new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+            if status!="initiate":
+                if sims[i] < sim_threshold:
+            # if is_in_group[i] == 0 and status=="initiate":
+                    indices = find_nearest_line(p, contour_result)
+                    new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                                                contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                                p, sims[i])
+                    new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
+            else:
+                if is_in_real_group[i] == 0:
+                    indices = find_nearest_line(p, contour_result)
+                    new_pos = get_new_position(contour_result[indices[0]]   , contour_result[indices[1]], 
+                                                contour_offsetted[indices[0]], contour_offsetted[indices[1]],
+                                                p, sims[i])
+                    new_positions.append([i, float(new_pos[0]), float(new_pos[1])])
         else: ## remaining points
+            if sims[i] <= 0:
+                sims[i] = - 0.7
             if inside_contour[i]:
                 if sims[i] < sim_threshold:
                     indices = find_nearest_line(p, contour_result)
