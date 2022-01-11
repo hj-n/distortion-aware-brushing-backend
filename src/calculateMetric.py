@@ -132,6 +132,9 @@ def clusteredMetric(
 
     label_data = clustered_label.tolist()
 
+    with open(file_path_label, 'w') as outfile:
+        json.dump(label_data, outfile)
+
     # selected_points = np.nonzero(clustered_label)[0]
     # points = points[selected_points]
     # class_label = class_label[selected_points]
@@ -139,7 +142,6 @@ def clusteredMetric(
 
     clustermetric_result = check_separability(points, class_label, clustered_label, label_num)
 
-    with open(file_path_label, 'w') as outfile:
-        json.dump(label_data, outfile)
+
     with open(file_path_result, 'w') as outfile:
         json.dump(clustermetric_result, outfile)
