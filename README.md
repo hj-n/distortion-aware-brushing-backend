@@ -1,4 +1,4 @@
-## Brushing MDP Backend
+## Distortion-aware brushing Backend
 
 ### Generating C++ executables / libs
 
