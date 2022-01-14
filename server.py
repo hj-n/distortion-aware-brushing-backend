@@ -105,6 +105,7 @@ def rescalePoints(points, resolution, offset_scale):
     
 
 def offsetting(points, offset):
+    print(offset)
     result = []
     for i, _ in enumerate(points):
         vec1 = points[i - 1] - points[i]
